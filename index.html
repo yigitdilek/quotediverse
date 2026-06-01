@@ -247,9 +247,10 @@ const db = {
       for(const ql of (resp.lines||[])){
         const line=lines?.find(l=>l.id===ql.line_id);
         if(!line) continue;
+        if(!ql.unit_price) continue; // skip lines with no price entered
         rows.push({date:rfqDate,ae:line.entered_by_name,requestedQty:line.qty,requestedMpn:line.mpn,
           supplier:resp.broker_name,quotedQty:ql.quoted_qty,mpnQuoted:ql.mpn_quoted||line.mpn,
-          manufacturer:ql.manufacturer,cost:ql.unit_price,currency:line.currency||'USD',
+          manufacturer:ql.manufacturer,cost:ql.unit_price,currency:ql.currency||'USD',
           dateCode:ql.date_code_quoted,availability:ql.lead_time,mpq:ql.mpq,moq:ql.moq,
           comments:ql.comments,targetPrice:line.target_price});
       }
@@ -617,53 +618,109 @@ function RFQHistory({nav,setSelRfq}){
 
 function PartHistory({profile}){
   const isMgmt=profile.role==='management'||profile.role==='admin';
-  const [rows,setRows]   =useState([]);
-  const [search,setSearch]=useState('');
+  const [rows,setRows]     =useState([]);
+  const [search,setSearch] =useState('');
+  const [selected,setSelected]=useState(null); // selected MPN string
   const [loading,setLoading]=useState(true);
+
   useEffect(()=>{
     let live=true;
     db.partHistory().then(d=>{if(live){setRows(d||[]);setLoading(false);}}).catch(()=>{if(live)setLoading(false);});
     return()=>{live=false;};
   },[]);
-  const filtered=rows.filter(r=>!search||r.requestedMpn?.toLowerCase().includes(search.toLowerCase())||r.mpnQuoted?.toLowerCase().includes(search.toLowerCase()));
-  const cols=isMgmt
-    ?['Date','AE','Req Qty','Requested MPN','Supplier','Quoted Qty','MPN Quoted','MFG','Cost','Curr','D/C Quoted','Availability','MPQ','MOQ','Comments','Target $']
-    :['Date','AE','Req Qty','Requested MPN','Quoted Qty','MPN Quoted','MFG','Cost','Curr','D/C Quoted','Availability','MPQ','MOQ','Comments','Target $'];
+
+  // Group all rows by requestedMpn
+  const byMpn={};
+  for(const r of rows){
+    const key=r.requestedMpn||'—';
+    if(!byMpn[key]) byMpn[key]=[];
+    byMpn[key].push(r);
+  }
+  const allMpns=Object.keys(byMpn).sort();
+  const filteredMpns=allMpns.filter(m=>!search||m.toLowerCase().includes(search.toLowerCase()));
+
+  // ── DETAIL VIEW ──────────────────────────────
+  if(selected){
+    const history=(byMpn[selected]||[]).sort((a,b)=>(!a.date&&!b.date)?0:(!a.date?1:!b.date?-1:new Date(b.date)-new Date(a.date)));
+    const detailCols=isMgmt
+      ?['Date','AE','Req Qty','Supplier','Quoted Qty','MPN Quoted','MFG','Cost','Curr','D/C Quoted','Availability','MPQ','MOQ','Comments','Target $']
+      :['Date','AE','Req Qty','Quoted Qty','MPN Quoted','MFG','Cost','Curr','D/C Quoted','Availability','MPQ','MOQ','Comments','Target $'];
+    return h('div',null,
+      h('div',{style:{display:'flex',alignItems:'center',gap:'12px',marginBottom:'1.5rem'}},
+        h('button',{className:'btn',onClick:()=>setSelected(null)},h('i',{className:'ti ti-arrow-left'}),'All parts'),
+        h('span',{className:'mono',style:{fontWeight:'700',fontSize:'16px'}},[selected]),
+        h('span',{className:'muted',style:{fontSize:'13px'}},[`${history.length} quote${history.length!==1?'s':''}`])
+      ),
+      h('div',{style:{overflowX:'auto'}},
+        h('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:'12px',minWidth:'900px'}},
+          h('thead',null,h('tr',null,...detailCols.map(c=>h('th',{key:c,style:{fontSize:'10px'}},c)))),
+          h('tbody',null,...history.map((r,i)=>h('tr',{key:i},
+            h('td',null,[fmtDate(r.date)]),
+            h('td',null,[r.ae||'—']),
+            h('td',null,[r.requestedQty||'—']),
+            isMgmt&&h('td',null,h('span',{style:{fontSize:'11px',color:'var(--text2)',fontWeight:'500'}},[r.supplier||'—'])),
+            h('td',null,[r.quotedQty||'—']),
+            h('td',null,h('span',{className:'mono',style:{fontSize:'12px'}},[r.mpnQuoted||'—'])),
+            h('td',null,[r.manufacturer||'—']),
+            h('td',null,h('div',{style:{display:'flex',alignItems:'center',gap:'5px'}},
+              h('span',{style:{fontWeight:'700',color:'var(--blue)'}},[r.cost?`$${r.cost}`:'—']),
+              h('span',{className:'badge',style:{background:'var(--blue-bg)',color:'var(--blue)',fontSize:'10px',padding:'1px 5px'}},[r.currency||'USD'])
+            )),
+            h('td',null,[r.dateCode||'—']),
+            h('td',null,[r.availability||'—']),
+            h('td',null,[r.mpq||'—']),
+            h('td',null,[r.moq||'—']),
+            h('td',{style:{maxWidth:'150px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},[r.comments||'—']),
+            h('td',null,[r.targetPrice?`$${r.targetPrice}`:'—'])
+          )))
+        )
+      )
+    );
+  }
+
+  // ── MPN LIST VIEW ────────────────────────────
   return h('div',null,
     h('div',{style:{marginBottom:'1rem',display:'flex',alignItems:'center',gap:'12px'}},
       h('div',{style:{flex:1,maxWidth:'360px',position:'relative'}},
         h('i',{className:'ti ti-search',style:{position:'absolute',left:'10px',top:'50%',transform:'translateY(-50%)',color:'var(--text3)',pointerEvents:'none'}}),
         h('input',{style:{paddingLeft:'32px'},value:search,onChange:e=>setSearch(e.target.value),placeholder:'Search by MPN...'})
       ),
-      !loading&&h('span',{className:'muted',style:{fontSize:'12px'}},[`${filtered.length} result${filtered.length!==1?'s':''}`])
+      !loading&&h('span',{className:'muted',style:{fontSize:'12px'}},[`${filteredMpns.length} unique MPN${filteredMpns.length!==1?'s':''}`])
     ),
     loading?h('p',{className:'muted'},'Loading...'):
-    filtered.length===0?h('p',{className:'muted'},'No results.'):
-    h('div',{style:{overflowX:'auto'}},
-      h('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:'12px',minWidth:'1000px'}},
-        h('thead',null,h('tr',null,...cols.map(c=>h('th',{key:c,style:{fontSize:'10px'}},c)))),
-        h('tbody',null,...filtered.map((r,i)=>h('tr',{key:i},
-          h('td',null,[fmtDate(r.date)]),
-          h('td',null,[r.ae||'—']),
-          h('td',null,[r.requestedQty||'—']),
-          h('td',null,h('span',{className:'mono',style:{fontWeight:'600',fontSize:'12px'}},[r.requestedMpn||'—'])),
-          isMgmt&&h('td',null,h('span',{style:{fontSize:'11px',color:'var(--text2)'}},[r.supplier||'—'])),
-          h('td',null,[r.quotedQty||'—']),
-          h('td',null,h('span',{className:'mono',style:{fontSize:'12px'}},[r.mpnQuoted||'—'])),
-          h('td',null,[r.manufacturer||'—']),
-          h('td',{style:{fontWeight:'600',color:'var(--blue)'}},[r.cost?`$${r.cost}`:'—']),
-          h('td',null,h('span',{className:'badge',style:{background:'var(--bg2)',color:'var(--text2)',fontSize:'10px',padding:'2px 6px'}},[r.currency||'USD'])),
-          h('td',null,[r.dateCode||'—']),
-          h('td',null,[r.availability||'—']),
-          h('td',null,[r.mpq||'—']),
-          h('td',null,[r.moq||'—']),
-          h('td',{style:{maxWidth:'150px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},[r.comments||'—']),
-          h('td',null,[r.targetPrice?`$${r.targetPrice}`:'—'])
-        )))
+    filteredMpns.length===0?h('p',{className:'muted'},search?'No results.':'No quoted parts yet.'):
+    h('div',{className:'card',style:{padding:'0',overflow:'hidden'}},
+      h('table',{style:{width:'100%',borderCollapse:'collapse'}},
+        h('thead',null,h('tr',null,
+          ...['MPN','Last quoted','# Quotes','Best price',''].map(c=>h('th',{key:c},c))
+        )),
+        h('tbody',null,...filteredMpns.map(mpn=>{
+          const quotes=byMpn[mpn];
+          const prices=quotes.filter(q=>q.cost&&!isNaN(+q.cost)).map(q=>+q.cost);
+          const best=prices.length?Math.min(...prices):null;
+          const bestRow=best?quotes.find(q=>+q.cost===best):null;
+          const latest=quotes.sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
+          return h('tr',{key:mpn,onClick:()=>setSelected(mpn),style:{cursor:'pointer'},
+            onMouseEnter:e=>e.currentTarget.style.background='var(--bg2)',
+            onMouseLeave:e=>e.currentTarget.style.background=''},
+            h('td',null,h('span',{className:'mono',style:{fontWeight:'700',fontSize:'13px'}},[mpn])),
+            h('td',{style:{color:'var(--text2)'}},[latest?.date?fmtDate(latest.date):'—']),
+            h('td',null,h('span',{className:'badge',style:{background:'var(--bg2)',color:'var(--text2)'}},[quotes.length])),
+            h('td',null,best
+              ? h('div',{style:{display:'flex',alignItems:'center',gap:'5px'}},
+                  h('span',{style:{fontWeight:'600',color:'var(--blue)'}},[`$${(+best).toFixed(4)}`]),
+                  h('span',{className:'badge',style:{background:'var(--blue-bg)',color:'var(--blue)',fontSize:'10px',padding:'1px 5px'}},[bestRow?.currency||'USD'])
+                )
+              : h('span',{className:'muted'},'—')
+            ),
+            h('td',{style:{textAlign:'right'}},h('i',{className:'ti ti-chevron-right',style:{color:'var(--text3)'}}))
+          );
+        }))
       )
     )
   );
 }
+
 
 // ═══════════════════════════════════════════
 //  RFQ DETAIL (comparison)
@@ -803,7 +860,10 @@ function RFQDetail({rfq:init,profile,nav}){
                   isLow&&h('span',{className:'badge',style:{background:'var(--blue)',color:'#fff',fontSize:'10px',padding:'1px 8px'}},'Best')
                 ),
                 q?h('div',null,
-                  q.unit_price&&h('div',{style:{fontSize:'20px',fontWeight:'700',color:isLow?'var(--blue)':'var(--text)',marginBottom:'8px'}},`$${(+q.unit_price).toFixed(4)}`),
+                  q.unit_price&&h('div',{style:{fontSize:'20px',fontWeight:'700',color:isLow?'var(--blue)':'var(--text)',marginBottom:'8px',display:'flex',alignItems:'baseline',gap:'6px'}},
+                    `$${(+q.unit_price).toFixed(4)}`,
+                    h('span',{style:{fontSize:'12px',fontWeight:'500',color:isLow?'var(--blue)':'var(--text2)',background:isLow?'var(--blue-bg)':'var(--bg3)',padding:'1px 6px',borderRadius:'4px'}},[q.currency||'USD'])
+                  ),
                   h('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:'12px'}},
                     ...[['Quoted MPN',q.mpn_quoted],['Quoted Qty',q.quoted_qty],['Manufacturer',q.manufacturer],
                         ['D/C Quoted',q.date_code_quoted],['Availability',q.lead_time],['MPQ',q.mpq],['MOQ',q.moq],['Notes',q.comments]]
