@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QuoteDiverse — Internal RFQ Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F8FAFC;--bg2:#F1F5F9;--bg3:#E2E8F0;
+  --surface:#FFFFFF;--border:#E2E8F0;--border2:#CBD5E1;
+  --text:#0F172A;--text2:#475569;--text3:#94A3B8;
+  --blue:#1D4ED8;--blue-h:#1E40AF;--blue-bg:#EFF6FF;--blue-b:#BFDBFE;
+  --success-bg:#F0FDF4;--success:#166534;--success-b:#86EFAC;
+  --warning-bg:#FFFBEB;--warning:#92400E;--warning-b:#FCD34D;
+  --danger-bg:#FEF2F2;--danger:#991B1B;--danger-b:#FCA5A5;
+  --info-bg:#EFF6FF;--info:#1D4ED8;--info-b:#BFDBFE;
+  --radius:8px;--radius-lg:12px;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);
+  --shadow-md:0 4px 6px rgba(0,0,0,.07),0 2px 4px rgba(0,0,0,.06);
+  --font:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+#root{min-height:100vh;display:flex;flex-direction:column}
+.nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.5rem;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:var(--shadow)}
+.nav-brand{display:flex;align-items:center;gap:10px;cursor:pointer}
+.nav-logo{width:32px;height:32px;background:var(--blue);border-radius:8px;display:flex;align-items:center;justify-content:center}
+.nav-logo i{font-size:17px;color:#fff}
+.nav-name{font-size:15px;font-weight:600;color:var(--text);letter-spacing:-.01em}
+.nav-name span{color:var(--blue)}
+.nav-links{display:flex;gap:4px}
+.nav-link{padding:6px 12px;border-radius:var(--radius);font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;border:none;background:transparent;font-family:var(--font);transition:all .15s}
+.nav-link:hover{background:var(--bg2);color:var(--text)}
+.nav-link.active{background:var(--blue-bg);color:var(--blue)}
+.page{max-width:1100px;margin:0 auto;padding:2rem 1.5rem;flex:1;width:100%}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;box-shadow:var(--shadow)}
+button{cursor:pointer;font-family:var(--font);font-size:13px;font-weight:500;border-radius:var(--radius);display:inline-flex;align-items:center;gap:6px;transition:all .15s;white-space:nowrap}
+button:hover:not(:disabled){filter:brightness(.92)}
+button:active:not(:disabled){transform:scale(.98)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.btn{padding:7px 14px;background:var(--surface);border:1px solid var(--border2);color:var(--text2)}
+.btn:hover:not(:disabled){background:var(--bg2);filter:none}
+.btn-primary{padding:7px 14px;background:var(--blue);border:none;color:#fff}
+.btn-primary:hover:not(:disabled){background:var(--blue-h);filter:none}
+.btn-danger{padding:5px 9px;background:transparent;border:none;color:var(--danger)}
+.btn-success{padding:7px 14px;background:#16a34a;border:none;color:#fff}
+.btn-success:hover:not(:disabled){background:#15803d;filter:none}
+.btn-lg{padding:10px 22px;font-size:14px}
+input,select{width:100%;padding:8px 10px;font-size:13px;font-family:var(--font);border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface);color:var(--text);outline:none;transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(29,78,216,.1)}
+input::placeholder{color:var(--text3)}
+.lbl{font-size:11px;font-weight:500;color:var(--text2);display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em}
+.muted{font-size:13px;color:var(--text2)}
+.mono{font-family:var(--mono)!important}
+.badge{font-size:11px;font-weight:500;padding:3px 10px;border-radius:20px;display:inline-block}
+th{text-align:left;padding:10px 12px;color:var(--text3);font-weight:500;font-size:11px;white-space:nowrap;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.05em;background:var(--bg2)}
+td{padding:11px 12px;vertical-align:middle;border-bottom:1px solid var(--border);font-size:13px}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg2)}
+.toast{position:fixed;top:1rem;right:1rem;padding:10px 16px;border-radius:var(--radius);font-size:13px;font-weight:500;z-index:9999;pointer-events:none;box-shadow:var(--shadow-md);animation:slideIn .2s ease;display:flex;align-items:center;gap:8px}
+@keyframes slideIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.75rem;gap:12px;flex-wrap:wrap}
+.page-title{font-size:20px;font-weight:600;letter-spacing:-.01em}
+.stat{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px}
+.stat-val{font-size:24px;font-weight:700;color:var(--text)}
+.stat-lbl{font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+.role-badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.06em}
+.role-admin{background:#fdf4ff;color:#7c3aed}
+.role-management{background:#eff6ff;color:#1d4ed8}
+.role-sales{background:#f0fdf4;color:#16a34a}
+.tab-bar{display:flex;gap:2px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:3px;margin-bottom:1.5rem;width:fit-content}
+.tab{padding:6px 16px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text2);font-family:var(--font)}
+.tab.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow)}
+.broker-header{background:linear-gradient(135deg,#1D4ED8 0%,#1E40AF 100%);color:#fff;padding:2rem 1.5rem;text-align:center}
+.broker-header h2{font-size:20px;font-weight:600;margin-bottom:4px}
+.broker-header p{font-size:13px;opacity:.8}
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg3);padding:1rem}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+.entered-by{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);background:var(--bg2);padding:2px 8px;border-radius:20px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<!--
+╔══════════════════════════════════════════════════════════════════╗
+║              SUPABASE SETUP — run in SQL Editor                 ║
+╠══════════════════════════════════════════════════════════════════╣
+║                                                                  ║
+║  create table profiles (                                         ║
+║    id uuid primary key references auth.users(id) on delete cascade,║
+║    email text not null, full_name text not null,                 ║
+║    role text not null check (role in ('admin','management','sales')),║
+║    active boolean default true,                                  ║
+║    created_at timestamptz default now()                          ║
+║  );                                                              ║
+║  create table daily_rfqs (                                       ║
+║    id text primary key, rfq_date date not null unique,           ║
+║    status text not null default 'open',                          ║
+║    sent_at timestamptz, created_at timestamptz default now()     ║
+║  );                                                              ║
+║  create table rfq_lines (                                        ║
+║    id text primary key,                                          ║
+║    daily_rfq_id text references daily_rfqs(id) on delete cascade,║
+║    mpn text not null, description text default '',               ║
+║    manufacturer text default '', qty text default '',            ║
+║    target_price text default '', date_needed text default '',    ║
+║    entered_by_id text not null, entered_by_name text not null,   ║
+║    created_at timestamptz default now()                          ║
+║  );                                                              ║
+║  create table brokers (                                          ║
+║    id text primary key, name text not null,                      ║
+║    email text not null, active boolean default true,             ║
+║    created_at timestamptz default now()                          ║
+║  );                                                              ║
+║  create table broker_responses (                                 ║
+║    id text primary key,                                          ║
+║    daily_rfq_id text references daily_rfqs(id) on delete cascade,║
+║    broker_name text not null, broker_email text not null,        ║
+║    token text unique not null,                                   ║
+║    submitted boolean default false, submitted_at timestamptz,    ║
+║    lines jsonb default '[]'::jsonb,                              ║
+║    created_at timestamptz default now()                          ║
+║  );                                                              ║
+║  alter table profiles enable row level security;                 ║
+║  alter table daily_rfqs enable row level security;               ║
+║  alter table rfq_lines enable row level security;                ║
+║  alter table brokers enable row level security;                  ║
+║  alter table broker_responses enable row level security;         ║
+║  create policy "p1" on profiles for all using(true) with check(true);║
+║  create policy "p2" on daily_rfqs for all using(true) with check(true);║
+║  create policy "p3" on rfq_lines for all using(true) with check(true);║
+║  create policy "p4" on brokers for all using(true) with check(true);║
+║  create policy "p5" on broker_responses for all using(true) with check(true);║
+║                                                                  ║
+║  INITIAL ADMIN SETUP:                                            ║
+║  1. Supabase → Authentication → Settings →                       ║
+║     turn OFF "Enable email confirmations"                        ║
+║  2. Supabase → Authentication → Users → Add user                ║
+║     Enter your email + password                                  ║
+║  3. Copy your UUID from that user row, then run:                 ║
+║     insert into profiles(id,email,full_name,role) values         ║
+║     ('YOUR-UUID','your@email.com','Your Name','admin');           ║
+║                                                                  ║
+╚══════════════════════════════════════════════════════════════════╝
+-->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script>
+'use strict';
+// ═══════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════
+const SUPABASE_URL = 'https://moaowzpafflkspxdveln.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vYW93enBhZmZsa3NweGR2ZWxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MzIwNzEsImV4cCI6MjA5NTMwODA3MX0.6ESqOgpGy1mSq9Vzzi0oR6dXKMA7sU9SWCIKYALG1Ko';
+const EJS_SVC  = 'service_pfprytb';
+const EJS_TPL  = 'template_bg7mllh';
+const EJS_KEY  = '1tRnsoSNUsHYb-MKz';
+// ═══════════════════════════════════════════
+
+const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+emailjs.init(EJS_KEY);
+
+const uid   = () => Math.random().toString(36).slice(2,11) + Math.random().toString(36).slice(2,7);
+const today = () => new Date().toISOString().split('T')[0];
+const rfqId = d => 'RFQ-' + d.replace(/-/g,'');
+const fmtDate = d => {
+  if(!d) return '—';
+  const s = String(d).split('T')[0].split('-');
+  return s.length===3 ? new Date(+s[0],+s[1]-1,+s[2]).toLocaleDateString() : new Date(d).toLocaleDateString();
+};
+
+// ═══════════════════════════════════════════
+//  DB
+// ═══════════════════════════════════════════
+const q = async p => { const {data,error} = await p; if(error) throw new Error(error.message); return data; };
+
+const db = {
+  login:  (e,p) => supa.auth.signInWithPassword({email:e,password:p}),
+  logout: ()    => supa.auth.signOut(),
+  session:()    => supa.auth.getSession(),
+
+  profile: async id => { const {data}=await supa.from('profiles').select('*').eq('id',id).single(); return data; },
+  profiles:()   => q(supa.from('profiles').select('*').order('full_name')),
+  createUser: async (email,pass,name,role) => {
+    const {data,error} = await supa.auth.signUp({email,password:pass});
+    if(error) throw new Error(error.message);
+    await q(supa.from('profiles').insert({id:data.user.id,email,full_name:name,role,active:true}));
+  },
+  updateProfile: (id,u) => q(supa.from('profiles').update(u).eq('id',id)),
+
+  todayRfq: async () => {
+    const t = today();
+    const {data} = await supa.from('daily_rfqs').select('*').eq('rfq_date',t).single();
+    if(data) return data;
+    const id = rfqId(t);
+    await q(supa.from('daily_rfqs').insert({id,rfq_date:t,status:'open'}));
+    return {id,rfq_date:t,status:'open',sent_at:null};
+  },
+  allRfqs:    ()   => q(supa.from('daily_rfqs').select('*').order('rfq_date',{ascending:false})),
+  getRfq:     id   => supa.from('daily_rfqs').select('*').eq('id',id).single().then(r=>r.data),
+  updateRfq:  (id,u) => q(supa.from('daily_rfqs').update(u).eq('id',id)),
+
+  lines:     rfqId => q(supa.from('rfq_lines').select('*').eq('daily_rfq_id',rfqId).order('created_at')),
+  addLine:   line  => q(supa.from('rfq_lines').insert(line)),
+  deleteLine:id    => q(supa.from('rfq_lines').delete().eq('id',id)),
+
+  brokers:       () => q(supa.from('brokers').select('*').order('name')),
+  activeBrokers: () => q(supa.from('brokers').select('*').eq('active',true).order('name')),
+  addBroker:    b  => q(supa.from('brokers').insert(b)),
+  updateBroker: (id,u) => q(supa.from('brokers').update(u).eq('id',id)),
+  deleteBroker:  id => q(supa.from('brokers').delete().eq('id',id)),
+
+  createResponses: async (rfqId,brokers) => {
+    const recs = brokers.map(b => ({id:uid(),daily_rfq_id:rfqId,broker_name:b.name,broker_email:b.email,token:uid(),submitted:false,lines:[]}));
+    await q(supa.from('broker_responses').insert(recs));
+    return recs;
+  },
+  responses:      rfqId => q(supa.from('broker_responses').select('*').eq('daily_rfq_id',rfqId)),
+  responseByToken: async tok => { const {data}=await supa.from('broker_responses').select('*').eq('token',tok).single(); return data; },
+  submitResponse: (id,lines) => q(supa.from('broker_responses').update({submitted:true,submitted_at:new Date().toISOString(),lines}).eq('id',id)),
+  partHistory: async()=>{
+    const {data:responses}=await supa.from('broker_responses').select('*').eq('submitted',true);
+    if(!responses?.length) return [];
+    const rfqIds=[...new Set(responses.map(r=>r.daily_rfq_id))];
+    const [{data:lines},{data:rfqs}]=await Promise.all([
+      supa.from('rfq_lines').select('*').in('daily_rfq_id',rfqIds),
+      supa.from('daily_rfqs').select('id,rfq_date').in('id',rfqIds)
+    ]);
+    const rows=[];
+    for(const resp of responses){
+      const rfqDate=rfqs?.find(r=>r.id===resp.daily_rfq_id)?.rfq_date;
+      for(const ql of (resp.lines||[])){
+        const line=lines?.find(l=>l.id===ql.line_id);
+        if(!line) continue;
+        rows.push({date:rfqDate,ae:line.entered_by_name,requestedQty:line.qty,requestedMpn:line.mpn,
+          supplier:resp.broker_name,quotedQty:ql.quoted_qty,mpnQuoted:ql.mpn_quoted||line.mpn,
+          manufacturer:ql.manufacturer,cost:ql.unit_price,currency:line.currency||'USD',
+          dateCode:ql.date_code_quoted,availability:ql.lead_time,mpq:ql.mpq,moq:ql.moq,
+          comments:ql.comments,targetPrice:line.target_price});
+      }
+    }
+    return rows.sort((a,b)=>(!a.date&&!b.date)?0:(!a.date?1:!b.date?-1:new Date(b.date)-new Date(a.date)));
+  },
+};
+
+const {useState,useEffect,useCallback,createElement:h} = React;
+
+// ═══════════════════════════════════════════
+//  SHARED UI
+// ═══════════════════════════════════════════
+function Logo(){
+  return h('div',{style:{display:'flex',alignItems:'center',gap:'10px'}},
+    h('div',{className:'nav-logo'},h('i',{className:'ti ti-circuit-board'})),
+    h('span',{className:'nav-name'},'Quote',h('span',null,'Diverse'))
+  );
+}
+function Toast({msg,type}){
+  const [bg,c,b,ic]= type==='error'
+    ? ['var(--danger-bg)','var(--danger)','var(--danger-b)','ti-circle-x']
+    : ['var(--success-bg)','var(--success)','var(--success-b)','ti-circle-check'];
+  return h('div',{className:'toast',style:{background:bg,color:c,border:`1px solid ${b}`}},
+    h('i',{className:`ti ${ic}`}),msg);
+}
+function RoleBadge({role}){
+  return h('span',{className:`role-badge role-${role}`},role);
+}
+function Navbar({profile,page,nav,onSignOut}){
+  const isAdmin = profile?.role==='admin';
+  const isMgmt  = profile?.role==='management'||isAdmin;
+  const links = [
+    h('button',{key:'today',className:`nav-link${page==='today'?' active':''}`,onClick:()=>nav('today')},'Today\'s RFQ')
+  ];
+  links.push(h('button',{key:'hist', className:`nav-link${page==='history'?' active':''}`,onClick:()=>nav('history')},'History'));
+  if(isAdmin) links.push(h('button',{key:'admin',className:`nav-link${page==='admin'?' active':''}`,   onClick:()=>nav('admin')},'Admin'));
+  return h('nav',{className:'nav'},
+    h('div',{className:'nav-brand',onClick:()=>nav('today')},h(Logo)),
+    h('div',{className:'nav-links'},...links),
+    h('div',{style:{display:'flex',alignItems:'center',gap:'10px'}},
+      h('span',{style:{fontSize:'13px',fontWeight:'500',color:'var(--text2)'}},profile?.full_name),
+      h(RoleBadge,{role:profile?.role||''}),
+      h('button',{className:'btn',style:{padding:'5px 10px'},onClick:onSignOut},'Sign out')
+    )
+  );
+}
+
+// ═══════════════════════════════════════════
+//  LOGIN
+// ═══════════════════════════════════════════
+function Login({onLogin,showToast}){
+  const [email,setEmail]=useState('');
+  const [pass,setPass]=useState('');
+  const [loading,setLoading]=useState(false);
+  const submit = async () => {
+    setLoading(true);
+    const {data,error} = await db.login(email,pass);
+    if(error){ showToast(error.message,'error'); setLoading(false); return; }
+    const profile = await db.profile(data.user.id);
+    if(!profile||!profile.active){ await db.logout(); showToast('Access denied — contact your administrator','error'); setLoading(false); return; }
+    onLogin(data.user,profile);
+    setLoading(false);
+  };
+  return h('div',{className:'login-wrap'},
+    h('div',{className:'card',style:{width:'100%',maxWidth:'380px'}},
+      h('div',{style:{textAlign:'center',marginBottom:'2rem'}},
+        h('div',{style:{width:'48px',height:'48px',background:'var(--blue)',borderRadius:'12px',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}},
+          h('i',{className:'ti ti-circuit-board',style:{fontSize:'24px',color:'#fff'}})),
+        h('h1',{style:{fontSize:'20px',fontWeight:'600',marginBottom:'4px'}},'Quote',h('span',{style:{color:'var(--blue)'}},'Diverse')),
+        h('p',{className:'muted',style:{fontSize:'13px'}},'Internal RFQ Portal')
+      ),
+      h('div',{style:{marginBottom:'14px'}},
+        h('label',{className:'lbl'},'Email'),
+        h('input',{type:'email',value:email,onChange:e=>setEmail(e.target.value),onKeyDown:e=>e.key==='Enter'&&submit(),placeholder:'your@company.com'})
+      ),
+      h('div',{style:{marginBottom:'20px'}},
+        h('label',{className:'lbl'},'Password'),
+        h('input',{type:'password',value:pass,onChange:e=>setPass(e.target.value),onKeyDown:e=>e.key==='Enter'&&submit(),placeholder:'••••••••'})
+      ),
+      h('button',{className:'btn-primary',style:{width:'100%',justifyContent:'center',padding:'10px'},onClick:submit,disabled:loading},
+        loading?'Signing in...':[h('i',{key:'i',className:'ti ti-login'}),'Sign in'])
+    )
+  );
+}
+
+// ═══════════════════════════════════════════
+//  TODAY PAGE
+// ═══════════════════════════════════════════
+const nL = () => ({mpn:'',description:'',manufacturer:'',qty:'',targetPrice:'',currency:'USD',dateCode:'',dateNeeded:'',comments:''});
+
+function TodayPage({profile,showToast}){
+  const [rfq,setRfq]       = useState(null);
+  const [lines,setLines]   = useState([]);
+  const [resps,setResps]   = useState([]);
+  const [loading,setLoading]=useState(true);
+  const [newLine,setNewLine]=useState(nL());
+  const [adding,setAdding] =useState(false);
+  const [sending,setSending]=useState(false);
+
+  const isMgmt = profile.role==='management'||profile.role==='admin';
+  const isAdmin= profile.role==='admin';
+
+  const loadLines = useCallback(async rfqId => {
+    try{ const l = await db.lines(rfqId); setLines(l||[]); }catch(e){ console.warn('loadLines:',e); }
+  },[]);
+
+  const load = useCallback(async()=>{
+    setLoading(true);
+    try{
+      const rfqData = await db.todayRfq(); setRfq(rfqData);
+      await loadLines(rfqData.id);
+      if(rfqData.status==='sent'||rfqData.status==='closed'){
+        const r = await db.responses(rfqData.id); setResps(r||[]);
+      }
+    }catch(e){ console.error('TodayPage load:',e); }
+    setLoading(false);
+  },[loadLines]);
+
+  useEffect(()=>{ load(); },[]);
+
+  const addLine = async()=>{
+    if(!newLine.mpn.trim()){ showToast('MPN is required','error'); return; }
+    setAdding(true);
+    try{
+      await db.addLine({id:uid(),daily_rfq_id:rfq.id,mpn:newLine.mpn.trim(),
+        description:newLine.description,manufacturer:newLine.manufacturer,
+        qty:newLine.qty,target_price:newLine.targetPrice,currency:newLine.currency||'USD',
+        date_code:newLine.dateCode,date_needed:newLine.dateNeeded,comments:newLine.comments,
+        entered_by_id:profile.id,entered_by_name:profile.full_name});
+      setNewLine(nL());
+      await loadLines(rfq.id);
+    }catch(e){ showToast(e.message,'error'); }
+    setAdding(false);
+  };
+
+  const delLine = async line=>{
+    if(!window.confirm('Delete this line?')) return;
+    try{ await db.deleteLine(line.id); }catch(e){ showToast(e.message,'error'); }
+  };
+
+  const sendBrokers = async()=>{
+    if(!window.confirm(`Send ${lines.length} line items to all active brokers?`)) return;
+    setSending(true);
+    try{
+      const brokers = await db.activeBrokers();
+      if(!brokers.length){ showToast('No active brokers configured','error'); setSending(false); return; }
+      const records = await db.createResponses(rfq.id,brokers);
+      const base = window.location.origin+window.location.pathname;
+      for(let i=0;i<records.length;i++){
+        const rec=records[i];
+        await emailjs.send(EJS_SVC,EJS_TPL,{
+          to_email:rec.broker_email, broker_name:rec.broker_name,
+          rfq_name:rfq.id, date:new Date().toLocaleDateString(),
+          link:`${base}#quote/${rec.token}`
+        });
+        if(i<records.length-1) await new Promise(r=>setTimeout(r,400));
+      }
+      await db.updateRfq(rfq.id,{status:'sent',sent_at:new Date().toISOString()});
+      setRfq(r=>({...r,status:'sent'}));
+      setResps(records);
+      showToast(`Sent to ${brokers.length} brokers successfully`);
+    }catch(e){ showToast('Failed: '+e.message,'error'); }
+    setSending(false);
+  };
+
+  const canDel  = l => isAdmin || l.entered_by_id===profile.id;
+  const canSend = isMgmt && rfq?.status==='open' && lines.length>0;
+  const statusMap = {
+    open:   {bg:'var(--info-bg)',   c:'var(--info)',    l:'Open — accepting entries'},
+    sent:   {bg:'var(--warning-bg)',c:'var(--warning)', l:'Sent to brokers'},
+    closed: {bg:'var(--success-bg)',c:'var(--success)', l:'Closed'}
+  };
+  const st = rfq ? (statusMap[rfq.status]||statusMap.open) : null;
+
+  const upd = (f,v) => setNewLine(p=>({...p,[f]:v}));
+
+  if(loading) return h('div',{style:{textAlign:'center',padding:'4rem',color:'var(--text3)'}},
+    h('i',{className:'ti ti-loader-2',style:{fontSize:'32px',display:'block',marginBottom:'8px'}}),'Loading...');
+
+  return h('div',{className:'page'},
+    h('div',{className:'page-header'},
+      h('div',null,
+        h('h1',{className:'page-title'},`Today's RFQ — ${fmtDate(rfq?.rfq_date)}`),
+        rfq&&h('div',{style:{marginTop:'4px',display:'flex',alignItems:'center',gap:'8px'}},
+          h('span',{className:'mono',style:{fontSize:'12px',color:'var(--text3)'}},[rfq.id]),
+          h('span',{className:'badge',style:{background:st.bg,color:st.c}},[st.l])
+        )
+      ),
+      h('div',{style:{display:'flex',gap:'8px'}},
+        h('button',{className:'btn',onClick:load},h('i',{className:'ti ti-refresh'}),'Refresh'),
+        canSend&&h('button',{className:'btn-success',onClick:sendBrokers,disabled:sending},
+          h('i',{className:sending?'ti ti-loader-2':'ti ti-send'}),
+          sending?'Sending emails...':'Send to brokers')
+      )
+    ),
+
+    // Broker response status (if sent)
+    rfq?.status==='sent'&&resps.length>0&&h('div',{className:'card',style:{marginBottom:'1.5rem',padding:'1rem 1.5rem'}},
+      h('div',{style:{fontWeight:'600',fontSize:'13px',marginBottom:'10px',display:'flex',alignItems:'center',gap:'6px'}},
+        h('i',{className:'ti ti-mail-check',style:{color:'var(--success)'}}),'Broker responses'),
+      h('div',{style:{display:'flex',gap:'6px',flexWrap:'wrap'}},
+        ...resps.map(r=>h('span',{key:r.id,className:'badge',style:{
+          background:r.submitted?'var(--success-bg)':'var(--bg3)',
+          color:r.submitted?'var(--success)':'var(--text3)'
+        }},r.broker_name+(r.submitted?' ✓':'')))
+      )
+    ),
+
+    // Line items table
+    h('div',{className:'card',style:{padding:'0',overflow:'hidden',marginBottom:'1.5rem'}},
+      h('table',{style:{width:'100%',borderCollapse:'collapse',minWidth:'800px'}},
+        h('thead',null,h('tr',null,
+          ...['#','MPN','Description','Manufacturer','Qty','Target $','Curr','Date Code','Date Needed','Comments','Entered By',''].map(t=>h('th',{key:t},t))
+        )),
+        h('tbody',null,
+          lines.length===0
+            ? h('tr',null,h('td',{colSpan:9,style:{textAlign:'center',color:'var(--text3)',padding:'2.5rem'}},
+                'No parts entered yet. Add the first line below.'))
+            : lines.map((l,i)=>h('tr',{key:l.id},
+                h('td',{style:{color:'var(--text3)',fontWeight:'500'}},[i+1]),
+                h('td',null,h('span',{className:'mono',style:{fontWeight:'600',fontSize:'13px'}},[l.mpn])),
+                h('td',{style:{color:'var(--text2)'}},[l.description||'—']),
+                h('td',{style:{color:'var(--text2)'}},[l.manufacturer||'—']),
+                h('td',null,[l.qty||'—']),
+                h('td',null,l.target_price?`$${l.target_price}`:'—'),
+                h('td',null,h('span',{className:'badge',style:{background:'var(--bg2)',color:'var(--text2)',fontSize:'10px'}},[l.currency||'USD'])),
+                h('td',{style:{color:'var(--text2)',fontFamily:'var(--mono)',fontSize:'12px'}},[l.date_code||'—']),
+                h('td',{style:{color:'var(--text2)'}},[l.date_needed||'—']),
+                h('td',{style:{color:'var(--text2)',maxWidth:'140px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},[l.comments||'—']),
+                h('td',null,h('span',{className:'entered-by'},h('i',{className:'ti ti-user',style:{fontSize:'11px'}}),[l.entered_by_name])),
+                h('td',{style:{textAlign:'right'}},
+                  canDel(l)&&rfq?.status==='open'
+                    ? h('button',{className:'btn-danger',onClick:()=>delLine(l)},h('i',{className:'ti ti-trash'}))
+                    : null
+                )
+              ))
+        )
+      )
+    ),
+
+    // Inline add row (only when open)
+    rfq?.status==='open'&&h('div',{style:{marginTop:'1rem',display:'flex',gap:'8px',alignItems:'flex-end',flexWrap:'wrap',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--radius-lg)',padding:'1rem'}},
+      ...[
+        {f:'mpn',l:'MPN *',ph:'LM358DR',cls:'mono',w:'130px'},
+        {f:'description',l:'Description',ph:'Op-amp',w:'140px'},
+        {f:'manufacturer',l:'Manufacturer',ph:'TI',w:'100px'},
+        {f:'qty',l:'Qty',ph:'1000',w:'80px'},
+        {f:'targetPrice',l:'Target $',ph:'0.25',w:'80px'},
+      ].map(({f,l,ph,cls,w})=>h('div',{key:f,style:{flex:`0 0 ${w}`}},
+        h('label',{className:'lbl'},[l]),
+        h('input',{className:cls||'',value:newLine[f],onChange:e=>upd(f,e.target.value),placeholder:ph,onKeyDown:e=>e.key==='Enter'&&addLine(),style:{width:w}})
+      )),
+      h('div',{key:'curr',style:{flex:'0 0 70px'}},
+        h('label',{className:'lbl'},'Curr'),
+        h('select',{value:newLine.currency,onChange:e=>upd('currency',e.target.value),style:{width:'70px'}},
+          h('option',{value:'USD'},'USD'),h('option',{value:'CAD'},'CAD'))
+      ),
+      h('div',{key:'dc',style:{flex:'0 0 110px'}},
+        h('label',{className:'lbl'},'Date Code'),
+        h('input',{value:newLine.dateCode,onChange:e=>upd('dateCode',e.target.value),placeholder:'2024+',style:{width:'110px'}})
+      ),
+      h('div',{key:'dn',style:{flex:'0 0 130px'}},
+        h('label',{className:'lbl'},'Date Needed'),
+        h('input',{type:'date',value:newLine.dateNeeded,onChange:e=>upd('dateNeeded',e.target.value),style:{width:'130px'}})
+      ),
+      h('div',{key:'cm',style:{flex:'1 1 140px',minWidth:'140px'}},
+        h('label',{className:'lbl'},'Comments'),
+        h('input',{value:newLine.comments,onChange:e=>upd('comments',e.target.value),placeholder:'Optional',onKeyDown:e=>e.key==='Enter'&&addLine()})
+      ),
+      h('div',{key:'btn',style:{paddingTop:'18px'}},
+        h('button',{className:'btn-primary',onClick:addLine,disabled:adding},
+          h('i',{className:'ti ti-plus'}),adding?'Adding...':'Add part')
+      )
+    ),
+
+    rfq?.status!=='open'&&h('div',{style:{textAlign:'center',padding:'1rem',color:'var(--text3)',fontSize:'13px'}},
+      'This RFQ has been sent to brokers. No more lines can be added.')
+  );
+}
+
+
+// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════
+//  HISTORY PAGE  (tabs: RFQ History | Part History)
+// ═══════════════════════════════════════════
+function HistoryPage({profile,nav,setSelRfq,showToast}){
+  const isAdmin=profile.role==='admin', isMgmt=profile.role==='management'||isAdmin;
+  const [tab,setTab]=useState(isMgmt?'rfqs':'parts');
+  return h('div',{className:'page'},
+    h('div',{className:'page-header'},h('h1',{className:'page-title'},'History')),
+    h('div',{className:'tab-bar'},
+      isMgmt&&h('button',{key:'rfqs',className:`tab${tab==='rfqs'?' active':''}`,onClick:()=>setTab('rfqs')},'RFQ History'),
+      h('button',{key:'parts',className:`tab${tab==='parts'?' active':''}`,onClick:()=>setTab('parts')},'Part History')
+    ),
+    tab==='rfqs'&&isMgmt&&h(RFQHistory,{nav,setSelRfq}),
+    tab==='parts'&&h(PartHistory,{profile})
+  );
+}
+
+function RFQHistory({nav,setSelRfq}){
+  const [rfqs,setRfqs]=useState([]);
+  const [loading,setLoading]=useState(true);
+  useEffect(()=>{
+    let live=true;
+    db.allRfqs().then(d=>{if(live){setRfqs(d||[]);setLoading(false);}}).catch(()=>{if(live)setLoading(false);});
+    return()=>{live=false;};
+  },[]);
+  const sc=r=>{
+    if(r.status==='closed') return{bg:'var(--success-bg)',c:'var(--success)',l:'Closed'};
+    if(r.status==='sent')   return{bg:'var(--warning-bg)',c:'var(--warning)',l:'Sent'};
+    return{bg:'var(--info-bg)',c:'var(--info)',l:'Open'};
+  };
+  const open=async rfq=>{const f=await db.getRfq(rfq.id);setSelRfq(f||rfq);nav('rfq-detail');};
+  return loading?h('p',{className:'muted'},'Loading...'):
+    rfqs.length===0?h('p',{className:'muted'},'No RFQs yet.'):
+    h('div',{className:'card',style:{padding:'0',overflow:'hidden'}},
+      h('table',{style:{width:'100%',borderCollapse:'collapse'}},
+        h('thead',null,h('tr',null,...['RFQ Reference','Date','Status','Sent At',''].map(t=>h('th',{key:t},t)))),
+        h('tbody',null,...rfqs.map(rfq=>{
+          const s=sc(rfq);
+          return h('tr',{key:rfq.id,onClick:()=>open(rfq),style:{cursor:'pointer'}},
+            h('td',null,h('span',{className:'mono',style:{fontWeight:'600'}},[rfq.id])),
+            h('td',null,[fmtDate(rfq.rfq_date)]),
+            h('td',null,h('span',{className:'badge',style:{background:s.bg,color:s.c}},[s.l])),
+            h('td',{style:{color:'var(--text2)'}},[rfq.sent_at?fmtDate(rfq.sent_at):'—']),
+            h('td',{style:{textAlign:'right'}},h('i',{className:'ti ti-chevron-right',style:{color:'var(--text3)'}}))
+          );
+        }))
+      )
+    );
+}
+
+function PartHistory({profile}){
+  const isMgmt=profile.role==='management'||profile.role==='admin';
+  const [rows,setRows]   =useState([]);
+  const [search,setSearch]=useState('');
+  const [loading,setLoading]=useState(true);
+  useEffect(()=>{
+    let live=true;
+    db.partHistory().then(d=>{if(live){setRows(d||[]);setLoading(false);}}).catch(()=>{if(live)setLoading(false);});
+    return()=>{live=false;};
+  },[]);
+  const filtered=rows.filter(r=>!search||r.requestedMpn?.toLowerCase().includes(search.toLowerCase())||r.mpnQuoted?.toLowerCase().includes(search.toLowerCase()));
+  const cols=isMgmt
+    ?['Date','AE','Req Qty','Requested MPN','Supplier','Quoted Qty','MPN Quoted','MFG','Cost','Curr','D/C Quoted','Availability','MPQ','MOQ','Comments','Target $']
+    :['Date','AE','Req Qty','Requested MPN','Quoted Qty','MPN Quoted','MFG','Cost','Curr','D/C Quoted','Availability','MPQ','MOQ','Comments','Target $'];
+  return h('div',null,
+    h('div',{style:{marginBottom:'1rem',display:'flex',alignItems:'center',gap:'12px'}},
+      h('div',{style:{flex:1,maxWidth:'360px',position:'relative'}},
+        h('i',{className:'ti ti-search',style:{position:'absolute',left:'10px',top:'50%',transform:'translateY(-50%)',color:'var(--text3)',pointerEvents:'none'}}),
+        h('input',{style:{paddingLeft:'32px'},value:search,onChange:e=>setSearch(e.target.value),placeholder:'Search by MPN...'})
+      ),
+      !loading&&h('span',{className:'muted',style:{fontSize:'12px'}},[`${filtered.length} result${filtered.length!==1?'s':''}`])
+    ),
+    loading?h('p',{className:'muted'},'Loading...'):
+    filtered.length===0?h('p',{className:'muted'},'No results.'):
+    h('div',{style:{overflowX:'auto'}},
+      h('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:'12px',minWidth:'1000px'}},
+        h('thead',null,h('tr',null,...cols.map(c=>h('th',{key:c,style:{fontSize:'10px'}},c)))),
+        h('tbody',null,...filtered.map((r,i)=>h('tr',{key:i},
+          h('td',null,[fmtDate(r.date)]),
+          h('td',null,[r.ae||'—']),
+          h('td',null,[r.requestedQty||'—']),
+          h('td',null,h('span',{className:'mono',style:{fontWeight:'600',fontSize:'12px'}},[r.requestedMpn||'—'])),
+          isMgmt&&h('td',null,h('span',{style:{fontSize:'11px',color:'var(--text2)'}},[r.supplier||'—'])),
+          h('td',null,[r.quotedQty||'—']),
+          h('td',null,h('span',{className:'mono',style:{fontSize:'12px'}},[r.mpnQuoted||'—'])),
+          h('td',null,[r.manufacturer||'—']),
+          h('td',{style:{fontWeight:'600',color:'var(--blue)'}},[r.cost?`$${r.cost}`:'—']),
+          h('td',null,h('span',{className:'badge',style:{background:'var(--bg2)',color:'var(--text2)',fontSize:'10px',padding:'2px 6px'}},[r.currency||'USD'])),
+          h('td',null,[r.dateCode||'—']),
+          h('td',null,[r.availability||'—']),
+          h('td',null,[r.mpq||'—']),
+          h('td',null,[r.moq||'—']),
+          h('td',{style:{maxWidth:'150px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},[r.comments||'—']),
+          h('td',null,[r.targetPrice?`$${r.targetPrice}`:'—'])
+        )))
+      )
+    )
+  );
+}
+
+// ═══════════════════════════════════════════
+//  RFQ DETAIL (comparison)
+// ═══════════════════════════════════════════
+function exportExcel(rfq,lines,resps,isMgmt){
+  if(typeof XLSX==='undefined'){alert('Export library not loaded');return;}
+  const submitted=resps.filter(r=>r.submitted);
+  const hdr=isMgmt
+    ?['Date','AE','Req Qty','Req MPN','Currency','Target $','Supplier','Quoted Qty','MPN Quoted','MFG','Cost','D/C Quoted','Availability','MPQ','MOQ','Comments']
+    :['Date','AE','Req Qty','Req MPN','Currency','Target $','Quoted Qty','MPN Quoted','MFG','Cost','D/C Quoted','Availability','MPQ','MOQ','Comments'];
+  const rows=[hdr];
+  for(const line of lines){
+    for(const resp of submitted){
+      const q=(resp.lines||[]).find(l=>l.line_id===line.id);
+      if(!q) continue;
+      const row=[rfq.rfq_date,line.entered_by_name,line.qty,line.mpn,line.currency||'USD',line.target_price,
+        ...(isMgmt?[resp.broker_name]:[]),
+        q.quoted_qty,q.mpn_quoted||line.mpn,q.manufacturer,q.unit_price,
+        q.date_code_quoted,q.lead_time,q.mpq,q.moq,q.comments];
+      rows.push(row);
+    }
+  }
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:12},{wch:15},{wch:10},{wch:20},{wch:8},{wch:10},...(isMgmt?[{wch:20}]:[]),{wch:12},{wch:20},{wch:15},{wch:10},{wch:12},{wch:18},{wch:8},{wch:8},{wch:30}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,rfq.id||'RFQ');
+  XLSX.writeFile(wb,`${rfq.id||'rfq'}-quotes.xlsx`);
+}
+
+function RFQDetail({rfq:init,profile,nav}){
+  const [rfq,setRfq]         =useState(init);
+  const [lines,setLines]     =useState([]);
+  const [resps,setResps]     =useState([]);
+  const [refreshing,setRefreshing]=useState(false);
+  const isAdmin=profile.role==='admin', isMgmt=profile.role==='management'||isAdmin;
+
+  const load=useCallback(async()=>{
+    if(!rfq) return;
+    setRefreshing(true);
+    try{
+      const [l,r]=await Promise.all([db.lines(rfq.id),db.responses(rfq.id)]);
+      setLines(l||[]); setResps(r||[]);
+    }catch(e){console.error(e);}
+    setRefreshing(false);
+  },[rfq?.id]);
+
+  useEffect(()=>{load();},[]);
+
+  const refresh=async()=>{const fresh=await db.getRfq(rfq.id);if(fresh)setRfq(fresh);load();};
+  const submitted=resps.filter(r=>r.submitted);
+
+  return h('div',{className:'page'},
+    h('div',{className:'page-header'},
+      h('div',{style:{display:'flex',alignItems:'center',gap:'12px'}},
+        h('button',{className:'btn',onClick:()=>nav('history')},h('i',{className:'ti ti-arrow-left'}),'Back'),
+        h('div',null,
+          h('h1',{className:'page-title'},[rfq?.id||'']),
+          h('p',{className:'muted',style:{fontSize:'12px'}},[fmtDate(rfq?.rfq_date)])
+        )
+      ),
+      h('div',{style:{display:'flex',gap:'8px'}},
+        isMgmt&&submitted.length>0&&h('button',{className:'btn',onClick:()=>exportExcel(rfq,lines,resps,isMgmt)},
+          h('i',{className:'ti ti-file-spreadsheet'}),'Export Excel'),
+        h('button',{className:'btn',onClick:refresh,disabled:refreshing},h('i',{className:'ti ti-refresh'}),refreshing?'Refreshing...':'Refresh')
+      )
+    ),
+
+    h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:'12px',marginBottom:'1.75rem'}},
+      ...[['Lines',lines.length,'ti-list'],['Sent to',resps.length,'ti-send'],['Responded',submitted.length,'ti-check'],['Pending',resps.length-submitted.length,'ti-clock']]
+        .map(([k,v,ic])=>h('div',{key:k,className:'stat'},
+          h('div',{style:{display:'flex',alignItems:'center',gap:'5px',marginBottom:'5px'}},h('i',{className:`ti ${ic}`,style:{fontSize:'13px',color:'var(--text3)'}}),h('div',{className:'stat-lbl'},[k])),
+          h('div',{className:'stat-val'},[v])))
+    ),
+
+    refreshing&&lines.length===0?h('div',{style:{textAlign:'center',padding:'3rem',color:'var(--text3)'}},'Loading...'):
+    h('div',null,
+      // Always show requested lines
+      h('div',{style:{fontSize:'11px',fontWeight:'600',color:'var(--text3)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'10px'}},'Requested Lines'),
+      h('div',{className:'card',style:{padding:'0',overflow:'hidden',marginBottom:'1.75rem'}},
+        h('table',{style:{width:'100%',borderCollapse:'collapse'}},
+          h('thead',null,h('tr',null,
+            ...['#','MPN','Description','Manufacturer','Qty','Target $','Curr','Date Code','Date Needed','Comments','Entered By'].map(t=>h('th',{key:t},t))
+          )),
+          h('tbody',null,
+            lines.length===0
+              ? h('tr',null,h('td',{colSpan:11,style:{textAlign:'center',color:'var(--text3)',padding:'2rem'}},'No lines on this RFQ.'))
+              : lines.map((l,i)=>h('tr',{key:l.id},
+                  h('td',{style:{color:'var(--text3)',fontWeight:'500'}},[i+1]),
+                  h('td',null,h('span',{className:'mono',style:{fontWeight:'600',fontSize:'13px'}},[l.mpn])),
+                  h('td',{style:{color:'var(--text2)'}},[l.description||'—']),
+                  h('td',{style:{color:'var(--text2)'}},[l.manufacturer||'—']),
+                  h('td',null,[l.qty||'—']),
+                  h('td',null,[l.target_price?`$${l.target_price}`:'—']),
+                  h('td',null,h('span',{className:'badge',style:{background:'var(--bg2)',color:'var(--text2)',fontSize:'10px'}},[l.currency||'USD'])),
+                  h('td',{style:{color:'var(--text2)',fontFamily:'var(--mono)',fontSize:'12px'}},[l.date_code||'—']),
+                  h('td',{style:{color:'var(--text2)'}},[l.date_needed||'—']),
+                  h('td',{style:{color:'var(--text2)',maxWidth:'140px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},[l.comments||'—']),
+                  h('td',null,h('span',{className:'entered-by'},h('i',{className:'ti ti-user',style:{fontSize:'11px'}}),[l.entered_by_name]))
+                ))
+          )
+        )
+      ),
+      // Broker comparison (only when responses exist)
+      submitted.length===0
+        ? h('div',{className:'card',style:{textAlign:'center',padding:'2.5rem'}},
+            h('i',{className:'ti ti-hourglass',style:{fontSize:'32px',color:'var(--text3)',display:'block',marginBottom:'10px'}}),
+            h('p',{style:{fontWeight:'500',color:'var(--text2)'}},'No broker responses yet'),
+            h('p',{className:'muted',style:{fontSize:'13px'}},'Hit Refresh once brokers have submitted.')
+          )
+        : h('div',null,
+            h('div',{style:{fontSize:'11px',fontWeight:'600',color:'var(--text3)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'14px'}},'Quote Comparison'),
+      ...lines.map(line=>{
+        const quotes=submitted.map((resp,idx)=>({
+          resp, idx,
+          q:(resp.lines||[]).find(x=>x.line_id===line.id)||null
+        }));
+        const prices=quotes.filter(q=>q.q?.unit_price&&!isNaN(+q.q.unit_price)).map(q=>+q.q.unit_price);
+        const minP=prices.length?Math.min(...prices):null;
+        return h('div',{key:line.id,className:'card',style:{marginBottom:'14px'}},
+          h('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'14px',paddingBottom:'12px',borderBottom:'1px solid var(--border)',flexWrap:'wrap'}},
+            h('span',{className:'mono',style:{fontWeight:'700',fontSize:'14px',background:'var(--bg2)',padding:'3px 8px',borderRadius:'6px'}},[line.mpn]),
+            line.description&&h('span',{style:{color:'var(--text2)',fontSize:'13px'}},[line.description]),
+            line.manufacturer&&h('span',{style:{color:'var(--text3)',fontSize:'12px'}},[`· ${line.manufacturer}`]),
+            h('div',{style:{marginLeft:'auto',display:'flex',gap:'12px',flexWrap:'wrap'}},
+              h('span',{style:{fontSize:'12px',color:'var(--text2)'}},'Req Qty: ',h('strong',{key:'q',style:{color:'var(--text)'}},[line.qty||'—'])),
+              line.target_price&&h('span',{key:'t',style:{fontSize:'12px',color:'var(--text2)'}},'Target: ',h('strong',{key:'p',style:{color:'var(--text)'}},[`$${line.target_price} ${line.currency||'USD'}`])),
+              line.date_code&&h('span',{key:'dc',style:{fontSize:'12px',color:'var(--text2)'}},'Req D/C: ',h('strong',{key:'d',style:{color:'var(--text)'}},[line.date_code])),
+              h('span',{key:'ae',className:'entered-by'},h('i',{className:'ti ti-user',style:{fontSize:'11px'}}),[line.entered_by_name])
+            )
+          ),
+          h('div',{style:{display:'grid',gridTemplateColumns:`repeat(${Math.min(submitted.length,3)},minmax(0,1fr))`,gap:'10px'}},
+            ...quotes.map(({resp,idx,q})=>{
+              const isLow=q?.unit_price&&+q.unit_price===minP;
+              return h('div',{key:resp.id,style:{background:isLow?'var(--blue-bg)':'var(--bg2)',borderRadius:'var(--radius)',padding:'12px 14px',border:isLow?'1.5px solid var(--blue-b)':'1px solid var(--border)'}},
+                h('div',{style:{fontSize:'12px',fontWeight:'600',marginBottom:'10px',display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}},
+                  isMgmt?resp.broker_name:`Supplier ${idx+1}`,
+                  isLow&&h('span',{className:'badge',style:{background:'var(--blue)',color:'#fff',fontSize:'10px',padding:'1px 8px'}},'Best')
+                ),
+                q?h('div',null,
+                  q.unit_price&&h('div',{style:{fontSize:'20px',fontWeight:'700',color:isLow?'var(--blue)':'var(--text)',marginBottom:'8px'}},`$${(+q.unit_price).toFixed(4)}`),
+                  h('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:'12px'}},
+                    ...[['Quoted MPN',q.mpn_quoted],['Quoted Qty',q.quoted_qty],['Manufacturer',q.manufacturer],
+                        ['D/C Quoted',q.date_code_quoted],['Availability',q.lead_time],['MPQ',q.mpq],['MOQ',q.moq],['Notes',q.comments]]
+                      .filter(([,v])=>v)
+                      .map(([k,v])=>h('tr',{key:k},
+                        h('td',{style:{color:'var(--text3)',paddingBottom:'4px',paddingRight:'10px',whiteSpace:'nowrap',verticalAlign:'top',fontWeight:'500'}},[k]),
+                        h('td',{style:{paddingBottom:'4px',wordBreak:'break-word',color:'var(--text2)'}},[v])
+                      ))
+                  )
+                ):h('div',{style:{color:'var(--text3)',fontStyle:'italic',fontSize:'12px'}},'No quote submitted')
+              );
+            })
+          )
+        );
+      })
+    )
+  )
+  );
+}
+
+//  ADMIN PAGE (tabs: Users | Brokers | History)
+// ═══════════════════════════════════════════
+function AdminPage({profile,nav,setSelRfq,showToast}){
+  const [tab,setTab]=useState('users');
+  let content;
+  if(tab==='users')   content=h(AdminUsers,  {showToast});
+  if(tab==='brokers') content=h(AdminBrokers,{showToast});
+  if(tab==='rfqs')    content=h(AdminRFQs,   {nav,setSelRfq,showToast});
+  return h('div',{className:'page'},
+    h('div',{className:'page-header'},h('h1',{className:'page-title'},'Admin Panel')),
+    h('div',{className:'tab-bar'},
+      ...[['users','Users','ti-users'],['brokers','Brokers','ti-mail'],['rfqs','All RFQs','ti-history']].map(([id,l,ic])=>
+        h('button',{key:id,className:`tab${tab===id?' active':''}`,onClick:()=>setTab(id)},
+          h('i',{className:`ti ${ic}`}),l)
+      )
+    ),
+    content
+  );
+}
+
+function AdminUsers({showToast}){
+  const [users,setUsers]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [form,setForm]=useState({email:'',name:'',pass:'',role:'sales'});
+  const [adding,setAdding]=useState(false);
+  const load=()=>{
+    let live=true;
+    db.profiles().then(d=>{if(live){setUsers(d||[]);setLoading(false);}}).catch(()=>{if(live)setLoading(false);});
+    return ()=>{live=false;};
+  };
+  useEffect(()=>load(),[]);
+  const create=async()=>{
+    if(!form.email||!form.name||!form.pass){showToast('Fill all fields','error');return;}
+    setAdding(true);
+    try{
+      await db.createUser(form.email,form.pass,form.name,form.role);
+      setForm({email:'',name:'',pass:'',role:'sales'});
+      showToast('User created');
+      load();
+    }catch(e){showToast(e.message,'error');}
+    setAdding(false);
+  };
+  const toggle=async u=>{
+    await db.updateProfile(u.id,{active:!u.active});
+    showToast(u.active?'User deactivated':'User activated');
+    load();
+  };
+  const upd=(f,v)=>setForm(p=>({...p,[f]:v}));
+  return h('div',null,
+    h('div',{className:'card',style:{marginBottom:'1.5rem'}},
+      h('div',{style:{fontWeight:'600',fontSize:'14px',marginBottom:'16px'}},'Create new user'),
+      h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr auto',gap:'10px',alignItems:'end',flexWrap:'wrap'}},
+        h('div',null,h('label',{className:'lbl'},'Full name'),h('input',{value:form.name,onChange:e=>upd('name',e.target.value),placeholder:'Jane Smith'})),
+        h('div',null,h('label',{className:'lbl'},'Email'),h('input',{type:'email',value:form.email,onChange:e=>upd('email',e.target.value),placeholder:'jane@company.com'})),
+        h('div',null,h('label',{className:'lbl'},'Temp password'),h('input',{value:form.pass,onChange:e=>upd('pass',e.target.value),placeholder:'Min 6 chars'})),
+        h('div',null,h('label',{className:'lbl'},'Role'),
+          h('select',{value:form.role,onChange:e=>upd('role',e.target.value),style:{width:'auto'}},
+            h('option',{value:'sales'},'Sales'),h('option',{value:'management'},'Management'),h('option',{value:'admin'},'Admin'))
+        )
+      ),
+      h('div',{style:{marginTop:'12px'}},
+        h('button',{className:'btn-primary',onClick:create,disabled:adding},h('i',{className:'ti ti-user-plus'}),adding?'Creating...':'Create user'),
+        h('p',{className:'muted',style:{fontSize:'12px',marginTop:'8px'}},'The user will log in with the temp password. They can change it later via "Forgot password" on the login page.')
+      )
+    ),
+    loading?h('p',{className:'muted'},'Loading...'):
+    h('div',{className:'card',style:{padding:'0',overflow:'hidden'}},
+      h('table',{style:{width:'100%',borderCollapse:'collapse'}},
+        h('thead',null,h('tr',null,...['Name','Email','Role','Status',''].map(t=>h('th',{key:t},t)))),
+        h('tbody',null,...users.map(u=>h('tr',{key:u.id},
+          h('td',{style:{fontWeight:'500'}},[u.full_name]),
+          h('td',{style:{color:'var(--text2)'}},[u.email]),
+          h('td',null,h(RoleBadge,{role:u.role})),
+          h('td',null,h('span',{className:'badge',style:{background:u.active?'var(--success-bg)':'var(--bg3)',color:u.active?'var(--success)':'var(--text3)'}},[u.active?'Active':'Inactive'])),
+          h('td',{style:{textAlign:'right'}},
+            h('button',{className:'btn',style:{padding:'5px 10px'},onClick:()=>toggle(u)},[u.active?'Deactivate':'Activate'])
+          )
+        )))
+      )
+    )
+  );
+}
+
+function AdminBrokers({showToast}){
+  const [brokers,setBrokers]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [form,setForm]=useState({name:'',email:''});
+  const [adding,setAdding]=useState(false);
+  const [err,setErr]=useState(null);
+  const load=()=>{
+    let live=true;
+    setErr(null);
+    db.brokers().then(d=>{if(live){setBrokers(d||[]);setLoading(false);}}).catch(e=>{if(live){setErr(e.message);setLoading(false);}});
+    return ()=>{live=false;};
+  };
+  useEffect(()=>load(),[]);
+  const add=async()=>{
+    if(!form.name||!form.email){showToast('Fill all fields','error');return;}
+    setAdding(true);
+    try{ await db.addBroker({id:uid(),name:form.name,email:form.email,active:true}); setForm({name:'',email:''}); showToast('Broker added'); load(); }
+    catch(e){ showToast(e.message,'error'); }
+    setAdding(false);
+  };
+  const toggle=async b=>{ await db.updateBroker(b.id,{active:!b.active}); showToast(b.active?'Deactivated':'Activated'); load(); };
+  const del=async b=>{ if(!window.confirm('Delete broker?')) return; await db.deleteBroker(b.id); showToast('Deleted'); load(); };
+  return h('div',null,
+    h('div',{className:'card',style:{marginBottom:'1.5rem'}},
+      h('div',{style:{fontWeight:'600',fontSize:'14px',marginBottom:'16px'}},'Add broker'),
+      h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr auto',gap:'10px',alignItems:'end'}},
+        h('div',null,h('label',{className:'lbl'},'Company name'),h('input',{value:form.name,onChange:e=>setForm(p=>({...p,name:e.target.value})),placeholder:'Acme Electronics'})),
+        h('div',null,h('label',{className:'lbl'},'Email'),h('input',{type:'email',value:form.email,onChange:e=>setForm(p=>({...p,email:e.target.value})),placeholder:'quotes@broker.com'})),
+        h('button',{className:'btn-primary',style:{alignSelf:'flex-end'},onClick:add,disabled:adding},h('i',{className:'ti ti-plus'}),adding?'Adding...':'Add')
+      )
+    ),
+    loading?h('p',{className:'muted'},'Loading...'):
+    err?h('p',{style:{color:'var(--danger)',fontSize:'13px',padding:'1rem'}},`Error: ${err}`):
+    h('div',{className:'card',style:{padding:'0',overflow:'hidden'}},
+      h('table',{style:{width:'100%',borderCollapse:'collapse'}},
+        h('thead',null,h('tr',null,...['Company','Email','Status',''].map(t=>h('th',{key:t},t)))),
+        h('tbody',null,...brokers.map(b=>h('tr',{key:b.id},
+          h('td',{style:{fontWeight:'500'}},[b.name]),
+          h('td',{style:{color:'var(--text2)'}},[b.email]),
+          h('td',null,h('span',{className:'badge',style:{background:b.active?'var(--success-bg)':'var(--bg3)',color:b.active?'var(--success)':'var(--text3)'}},[b.active?'Active':'Inactive'])),
+          h('td',{style:{textAlign:'right',display:'flex',gap:'6px',justifyContent:'flex-end'}},
+            h('button',{className:'btn',style:{padding:'5px 10px'},onClick:()=>toggle(b)},[b.active?'Disable':'Enable']),
+            h('button',{className:'btn-danger',onClick:()=>del(b)},h('i',{className:'ti ti-trash'}))
+          )
+        )))
+      )
+    )
+  );
+}
+
+function AdminRFQs({nav,setSelRfq,showToast}){
+  const [rfqs,setRfqs]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [err,setErr]=useState(null);
+  useEffect(()=>{
+    let live=true;
+    db.allRfqs().then(d=>{if(live){setRfqs(d||[]);setLoading(false);}}).catch(e=>{if(live){setErr(e.message);setLoading(false);}});
+    return ()=>{live=false;};
+  },[]);
+  const sc=r=>{
+    if(r.status==='closed') return {bg:'var(--success-bg)',c:'var(--success)',l:'Closed'};
+    if(r.status==='sent')   return {bg:'var(--warning-bg)',c:'var(--warning)',l:'Sent'};
+    return {bg:'var(--info-bg)',c:'var(--info)',l:'Open'};
+  };
+  const open=async rfq=>{ const f=await db.getRfq(rfq.id); setSelRfq(f||rfq); nav('rfq-detail'); };
+  return loading?h('p',{className:'muted'},'Loading...'):
+  err?h('p',{style:{color:'var(--danger)',fontSize:'13px',padding:'1rem'}},`Error: ${err}`):
+  rfqs.length===0?h('p',{className:'muted',style:{padding:'1rem'}},'No RFQs yet.'):
+  h('div',{className:'card',style:{padding:'0',overflow:'hidden'}},
+    h('table',{style:{width:'100%',borderCollapse:'collapse'}},
+      h('thead',null,h('tr',null,...['RFQ Reference','Date','Status','Sent At',''].map(t=>h('th',{key:t},t)))),
+      h('tbody',null,...rfqs.map(rfq=>{
+        const s=sc(rfq);
+        return h('tr',{key:rfq.id,onClick:()=>open(rfq),style:{cursor:'pointer'}},
+          h('td',null,h('span',{className:'mono',style:{fontWeight:'600'}},[rfq.id])),
+          h('td',null,[fmtDate(rfq.rfq_date)]),
+          h('td',null,h('span',{className:'badge',style:{background:s.bg,color:s.c}},[s.l])),
+          h('td',{style:{color:'var(--text2)'}},[rfq.sent_at?fmtDate(rfq.sent_at):'—']),
+          h('td',{style:{textAlign:'right'}},h('i',{className:'ti ti-chevron-right',style:{color:'var(--text3)'}}))
+        );
+      }))
+    )
+  );
+}
+
+// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════
+//  BROKER FORM (unauthenticated, via link)
+// ═══════════════════════════════════════════
+function BrokerForm({token,showToast}){
+  const [resp,setResp]   =useState(null);
+  const [lines,setLines] =useState([]);
+  const [ans,setAns]     =useState([]);
+  const [loading,setLoading]=useState(true);
+  const [saving,setSaving]  =useState(false);
+
+  useEffect(()=>{
+    if(!token) return;
+    db.responseByToken(token).then(async r=>{
+      if(!r){setLoading(false);return;}
+      setResp(r);
+      const l=await db.lines(r.daily_rfq_id);
+      setLines(l||[]);
+      setAns((l||[]).map(x=>({line_id:x.id,mpn_quoted:x.mpn,quoted_qty:x.qty||'',
+        manufacturer:'',unit_price:'',date_code_quoted:'',lead_time:'',mpq:'',moq:'',comments:''})));
+      setLoading(false);
+    });
+  },[token]);
+
+  const upd=(lid,f,v)=>setAns(a=>a.map(x=>x.line_id===lid?{...x,[f]:v}:x));
+
+  const submit=async()=>{
+    setSaving(true);
+    try{
+      await db.submitResponse(resp.id,ans);
+      setResp(r=>({...r,submitted:true}));
+      showToast('Quote submitted successfully');
+    }catch(e){showToast(e.message,'error');}
+    setSaving(false);
+  };
+
+  if(loading) return h('div',{style:{textAlign:'center',padding:'4rem',color:'var(--text3)'}},'Loading your RFQ...');
+  if(!resp)   return h('div',{style:{textAlign:'center',padding:'4rem'}},
+    h('i',{className:'ti ti-link-off',style:{fontSize:'40px',color:'var(--text3)',display:'block',marginBottom:'12px'}}),
+    h('p',{style:{fontWeight:'500'}},'Invalid or expired link'));
+  if(resp.submitted) return h('div',null,
+    h('div',{className:'broker-header'},
+      h('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',marginBottom:'6px'}},
+        h('div',{style:{width:'26px',height:'26px',background:'rgba(255,255,255,.2)',borderRadius:'6px',display:'flex',alignItems:'center',justifyContent:'center'}},
+          h('i',{className:'ti ti-circuit-board',style:{fontSize:'13px'}})),
+        h('span',{style:{fontWeight:'600'}},'QuoteDiverse')),
+      h('h2',null,'Already submitted'),h('p',null,[resp.daily_rfq_id])),
+    h('div',{style:{textAlign:'center',padding:'3rem',color:'var(--text2)'}},'Your quote was already received. Thank you!'));
+
+  const fields=[
+    {f:'mpn_quoted',l:'MPN Quoted',ph:'Same or alternate MPN'},
+    {f:'quoted_qty',l:'Quoted Qty',t:'number',ph:'0'},
+    {f:'manufacturer',l:'Manufacturer',ph:'e.g. TI, Vishay'},
+    {f:'unit_price',l:'Unit Price ($)',t:'number',ph:'0.0000'},
+    {f:'date_code_quoted',l:'Date Code',ph:'e.g. 2024+'},
+    {f:'lead_time',l:'Lead Time / Availability',ph:'In stock / 4-6 wks'},
+    {f:'mpq',l:'MPQ',t:'number',ph:'1'},
+    {f:'moq',l:'MOQ',t:'number',ph:'1'},
+    {f:'comments',l:'Notes / Comments',ph:'Optional'},
+  ];
+
+  return h('div',null,
+    h('div',{className:'broker-header'},
+      h('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',marginBottom:'6px'}},
+        h('div',{style:{width:'26px',height:'26px',background:'rgba(255,255,255,.2)',borderRadius:'6px',display:'flex',alignItems:'center',justifyContent:'center'}},
+          h('i',{className:'ti ti-circuit-board',style:{fontSize:'13px'}})),
+        h('span',{style:{fontWeight:'600'}},'QuoteDiverse')),
+      h('h2',null,[resp.daily_rfq_id]),
+      h('p',null,[resp.broker_name,' · ',lines.length,' line item',lines.length!==1?'s':'',' · Quotes are confidential'])
+    ),
+    h('div',{style:{maxWidth:'1200px',margin:'0 auto',padding:'2rem 1.5rem'}},
+      ...lines.map((line,i)=>{
+        const a=ans.find(x=>x.line_id===line.id);
+        if(!a) return null;
+        return h('div',{key:line.id,className:'card',style:{marginBottom:'12px'}},
+          h('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'14px',paddingBottom:'12px',borderBottom:'1px solid var(--border)',flexWrap:'wrap'}},
+            h('div',{style:{width:'24px',height:'24px',borderRadius:'6px',background:'var(--blue)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:'700',flexShrink:0}},[i+1]),
+            h('span',{className:'mono',style:{fontWeight:'700',fontSize:'14px'}},[line.mpn]),
+            line.manufacturer&&h('span',{style:{color:'var(--text2)',fontSize:'13px'}},[line.manufacturer]),
+            line.description&&h('span',{style:{color:'var(--text3)',fontSize:'13px'}},[`— ${line.description}`]),
+            h('div',{style:{marginLeft:'auto',display:'flex',gap:'14px',flexWrap:'wrap'}},
+              h('span',{style:{fontSize:'12px',color:'var(--text2)'}},'Req Qty: ',h('strong',{key:'q',style:{color:'var(--text)'}},[line.qty||'—'])),
+              line.target_price&&h('span',{key:'t',style:{fontSize:'12px',color:'var(--text2)'}},'Target: ',h('strong',{key:'p',style:{color:'var(--text)'}},[`$${line.target_price} ${line.currency||'USD'}`])),
+              line.date_code&&h('span',{key:'dc',style:{fontSize:'12px',color:'var(--text2)'}},'Req D/C: ',h('strong',{key:'d',style:{color:'var(--text)'}},[line.date_code]))
+            )
+          ),
+          h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))',gap:'12px'}},
+            ...fields.map(({f,l,t,ph})=>h('div',{key:f},
+              h('label',{className:'lbl'},[l]),
+              h('input',{type:t||'text',value:a[f],onChange:e=>upd(line.id,f,e.target.value),placeholder:ph})
+            ))
+          )
+        );
+      }),
+      h('div',{style:{display:'flex',justifyContent:'flex-end',marginTop:'1rem',paddingBottom:'3rem'}},
+        h('button',{className:'btn-primary btn-lg',onClick:submit,disabled:saving},
+          h('i',{className:'ti ti-send'}),saving?'Submitting...':'Submit my quote'))
+    )
+  );
+}
+
+//  ERROR BOUNDARY
+// ═══════════════════════════════════════════
+class ErrorBoundary extends React.Component {
+  constructor(props){ super(props); this.state={err:null}; }
+  static getDerivedStateFromError(e){ return {err:e.message||String(e)}; }
+  componentDidCatch(e,info){ console.error('React error:',e,info); }
+  render(){
+    if(this.state.err) return React.createElement('div',{
+      style:{margin:'2rem',padding:'1.5rem',background:'var(--danger-bg)',color:'var(--danger)',
+             borderRadius:'var(--radius-lg)',border:'1px solid var(--danger-b)',fontSize:'13px'}
+    }, React.createElement('strong',null,'Error: '), this.state.err,
+       React.createElement('br'),
+       React.createElement('span',{style:{opacity:.7}},'Check the browser console (F12) for more details.'));
+    return this.props.children;
+  }
+}
+
+// ═══════════════════════════════════════════
+//  APP ROOT
+// ═══════════════════════════════════════════
+function App(){
+  const [authState,setAuth]  = useState('loading');
+  const [user,setUser]       = useState(null);
+  const [profile,setProfile] = useState(null);
+  const [page,setPage]       = useState('today');
+  const [selRfq,setSelRfq]   = useState(null);
+  const [brokerTok,setBrokerTok]=useState(null);
+  const [toast,setToast]     = useState(null);
+
+  const showToast=(msg,type='success')=>{ setToast({msg,type}); setTimeout(()=>setToast(null),4000); };
+
+  const nav=useCallback((p,extra={})=>{
+    if('rfq' in extra) setSelRfq(extra.rfq);
+    setPage(p); window.scrollTo(0,0);
+  },[]);
+
+  useEffect(()=>{
+    const hash=window.location.hash;
+    if(hash.startsWith('#quote/')){
+      setBrokerTok(hash.slice(7));
+      history.replaceState(null,'',window.location.pathname);
+    }
+  },[]);
+
+  useEffect(()=>{
+    supa.auth.getSession().then(async({data})=>{
+      if(data.session?.user){
+        const prof = await db.profile(data.session.user.id);
+        if(prof&&prof.active){ setUser(data.session.user); setProfile(prof); setAuth('authed'); }
+        else { await supa.auth.signOut(); setAuth('unauthed'); }
+      } else { setAuth('unauthed'); }
+    }).catch(()=>setAuth('unauthed'));
+  },[]);
+
+  const onLogin=(u,p)=>{ setUser(u); setProfile(p); setAuth('authed'); };
+
+  if(brokerTok) return h('div',null,
+    toast&&h(Toast,toast),
+    h(ErrorBoundary,null,h(BrokerForm,{token:brokerTok,showToast}))
+  );
+
+  if(authState==='loading') return h('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'100vh',color:'var(--text3)'}},
+    h('i',{className:'ti ti-loader-2',style:{fontSize:'32px'}})
+  );
+
+  if(authState==='unauthed') return h('div',null,
+    toast&&h(Toast,toast),
+    h(Login,{onLogin,showToast})
+  );
+
+  const isAdmin = profile.role==='admin';
+  const isMgmt  = profile.role==='management'||isAdmin;
+
+  const onSignOut = async()=>{ await supa.auth.signOut(); setAuth('unauthed'); setUser(null); setProfile(null); setPage('today'); };
+
+  // Clean conditional page rendering — no && chains
+  let pageContent = null;
+  if     (page==='today')                  pageContent = h(TodayPage,   {profile,showToast});
+  else if(page==='history')               pageContent = h(HistoryPage, {profile,nav,setSelRfq,showToast});
+  else if(page==='rfq-detail' && isMgmt)   pageContent = h(RFQDetail,   {rfq:selRfq,profile,nav});
+  else if(page==='admin'      && isAdmin)  pageContent = h(AdminPage,   {profile,nav,setSelRfq,showToast});
+  else                                      pageContent = h(TodayPage,   {profile,showToast});
+
+  return h('div',null,
+    toast&&h(Toast,toast),
+    h(Navbar,{profile,page,nav,onSignOut}),
+    h(ErrorBoundary,{key:page},pageContent)
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(h(App));
+</script>
+</body>
+</html>
