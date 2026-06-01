@@ -363,7 +363,7 @@ function Login({onLogin,showToast}){
 // ═══════════════════════════════════════════
 //  TODAY PAGE
 // ═══════════════════════════════════════════
-const nL = () => ({mpn:'',description:'',manufacturer:'',qty:'',targetPrice:'',currency:'USD',dateCode:'',dateNeeded:'',comments:'',crossMpn:'',crossMfr:''});
+const nL = () => ({mpn:'',description:'',manufacturer:'',qty:'',targetPrice:'',currency:'USD',dateCode:'',dateNeeded:'',comments:'',crosses:[]});
 const CURRENCIES = ['USD','CAD','EUR','GBP','JPY','CNY','HKD','SGD','AUD','CHF','KRW','TWD','MXN','INR'];
 
 function TodayPage({profile,showToast}){
@@ -408,7 +408,7 @@ function TodayPage({profile,showToast}){
         description:newLine.description,manufacturer:newLine.manufacturer,
         qty:newLine.qty,target_price:newLine.targetPrice,currency:newLine.currency||'USD',
         date_code:newLine.dateCode,date_needed:newLine.dateNeeded,comments:newLine.comments,
-        cross_mpn:newLine.crossMpn,cross_manufacturer:newLine.crossMfr,
+        crosses:newLine.crosses.filter(c=>c.mpn.trim()),
         entered_by_id:profile.id,entered_by_name:profile.full_name});
       setNewLine(nL());
       await loadLines(rfq.id);
@@ -512,10 +512,10 @@ function TodayPage({profile,showToast}){
                 h('td',{style:{color:'var(--text3)',fontWeight:'500'}},[i+1]),
                 h('td',null,
                 h('span',{className:'mono',style:{fontWeight:'600',fontSize:'13px'}},[l.mpn]),
-                l.cross_mpn&&h('div',{style:{fontSize:'11px',color:'var(--text3)',marginTop:'2px',fontFamily:'var(--mono)'}},
-                  h('i',{className:'ti ti-corner-down-right',style:{fontSize:'10px',marginRight:'3px'}}),l.cross_mpn,
-                  l.cross_manufacturer&&h('span',{style:{color:'var(--text3)',fontWeight:'400'}},[` (${l.cross_manufacturer})`])
-                )
+                l.crosses&&l.crosses.filter(c=>c.mpn).map((c,i)=>h('div',{key:i,style:{fontSize:'11px',color:'var(--text3)',marginTop:'2px',fontFamily:'var(--mono)'}},
+                  h('i',{className:'ti ti-corner-down-right',style:{fontSize:'10px',marginRight:'3px'}}),c.mpn,
+                  c.mfr&&h('span',{style:{color:'var(--text3)',fontWeight:'400'}},[` (${c.mfr})`])
+                ))
               ),
                 h('td',{style:{color:'var(--text2)'}},[l.description||'—']),
                 h('td',{style:{color:'var(--text2)'}},[l.manufacturer||'—']),
@@ -565,18 +565,37 @@ function TodayPage({profile,showToast}){
         h('label',{className:'lbl'},'Comments'),
         h('input',{value:newLine.comments,onChange:e=>upd('comments',e.target.value),placeholder:'Optional',onKeyDown:e=>e.key==='Enter'&&addLine()})
       ),
-      h('div',{key:'crossmpn',style:{flex:'0 0 130px'}},
-        h('label',{className:'lbl'},h('span',{style:{color:'var(--text3)',fontSize:'10px'}},'Optional — '),'Cross MPN'),
-        h('input',{value:newLine.crossMpn,onChange:e=>upd('crossMpn',e.target.value),placeholder:'Alt MPN'})
-      ),
-      h('div',{key:'crossmfr',style:{flex:'0 0 100px'}},
-        h('label',{className:'lbl'},'Cross Mfr'),
-        h('input',{value:newLine.crossMfr,onChange:e=>upd('crossMfr',e.target.value),placeholder:'Mfr'})
-      ),
       h('div',{key:'btn',style:{paddingTop:'18px'}},
         h('button',{className:'btn-primary',onClick:addLine,disabled:adding},
           h('i',{className:'ti ti-plus'}),adding?'Adding...':'Add part')
       )
+    ),
+    // Dynamic cross/alternative rows
+    newLine.crosses.length>0&&h('div',{style:{marginTop:'8px',display:'flex',flexDirection:'column',gap:'6px'}},
+      ...newLine.crosses.map((c,i)=>h('div',{key:i,style:{display:'flex',gap:'8px',alignItems:'flex-end',background:'var(--bg2)',padding:'8px 10px',borderRadius:'var(--radius)',border:'1px solid var(--border)'}},
+        h('div',{style:{flex:'0 0 auto',paddingBottom:'10px'}},
+          h('i',{className:'ti ti-corner-down-right',style:{color:'var(--text3)',fontSize:'14px'}})
+        ),
+        h('div',{style:{flex:'0 0 160px'}},
+          h('label',{className:'lbl'},`Alternative MPN ${i+1}`),
+          h('input',{className:'mono',style:{fontSize:'12px'},value:c.mpn,
+            onChange:e=>upd('crosses',newLine.crosses.map((x,j)=>j===i?{...x,mpn:e.target.value}:x)),
+            placeholder:'e.g. LM358D'})
+        ),
+        h('div',{style:{flex:'0 0 130px'}},
+          h('label',{className:'lbl'},'Manufacturer'),
+          h('input',{value:c.mfr,
+            onChange:e=>upd('crosses',newLine.crosses.map((x,j)=>j===i?{...x,mfr:e.target.value}:x)),
+            placeholder:'e.g. ON Semi'})
+        ),
+        h('button',{style:{cursor:'pointer',border:'none',background:'transparent',color:'var(--danger)',padding:'0 4px',fontSize:'18px',paddingBottom:'10px',fontFamily:'var(--font)'},
+          onClick:()=>upd('crosses',newLine.crosses.filter((_,j)=>j!==i))},'×')
+      ))
+    ),
+    h('div',{style:{marginTop:'6px'}},
+      h('button',{className:'btn',style:{fontSize:'12px'},
+        onClick:()=>upd('crosses',[...newLine.crosses,{mpn:'',mfr:''}])},
+        h('i',{className:'ti ti-plus'}),'Add alternative / cross MPN')
     ),
 
     rfq?.status!=='open'&&h('div',{style:{textAlign:'center',padding:'1rem',color:'var(--text3)',fontSize:'13px'}},
@@ -831,10 +850,10 @@ function RFQDetail({rfq:init,profile,nav}){
                   h('td',{style:{color:'var(--text3)',fontWeight:'500'}},[i+1]),
                   h('td',null,
                     h('span',{className:'mono',style:{fontWeight:'600',fontSize:'13px'}},[l.mpn]),
-                    l.cross_mpn&&h('div',{style:{fontSize:'11px',color:'var(--text3)',marginTop:'2px',fontFamily:'var(--mono)'}},
-                      h('i',{className:'ti ti-corner-down-right',style:{fontSize:'10px',marginRight:'3px'}}),l.cross_mpn,
-                      l.cross_manufacturer&&h('span',null,[` (${l.cross_manufacturer})`])
-                    )
+                    l.crosses&&l.crosses.filter(c=>c.mpn).map((c,i)=>h('div',{key:i,style:{fontSize:'11px',color:'var(--text3)',marginTop:'2px',fontFamily:'var(--mono)'}},
+                      h('i',{className:'ti ti-corner-down-right',style:{fontSize:'10px',marginRight:'3px'}}),c.mpn,
+                      c.mfr&&h('span',{style:{fontWeight:'400'}},[` (${c.mfr})`])
+                    ))
                   ),
                   h('td',{style:{color:'var(--text2)'}},[l.description||'—']),
                   h('td',{style:{color:'var(--text2)'}},[l.manufacturer||'—']),
@@ -871,8 +890,8 @@ function RFQDetail({rfq:init,profile,nav}){
               return h('div',{key:line.id,className:'card',style:{marginBottom:'14px'}},
                 h('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'14px',paddingBottom:'12px',borderBottom:'1px solid var(--border)',flexWrap:'wrap'}},
                   h('span',{className:'mono',style:{fontWeight:'700',fontSize:'14px',background:'var(--bg2)',padding:'3px 8px',borderRadius:'6px'}},[line.mpn]),
-                  line.cross_mpn&&h('span',{style:{fontSize:'12px',color:'var(--text3)',fontFamily:'var(--mono)'}},
-                    h('i',{className:'ti ti-corner-down-right',style:{fontSize:'11px',marginRight:'3px'}}),line.cross_mpn),
+                  line.crosses&&line.crosses.filter(c=>c.mpn).map((c,i)=>h('span',{key:i,style:{fontSize:'12px',color:'var(--text3)',fontFamily:'var(--mono)',marginRight:'6px'}},
+                    h('i',{className:'ti ti-corner-down-right',style:{fontSize:'11px',marginRight:'3px'}}),c.mpn)),
                   line.description&&h('span',{style:{color:'var(--text2)',fontSize:'13px'}},[line.description]),
                   h('div',{style:{marginLeft:'auto',display:'flex',gap:'12px',flexWrap:'wrap'}},
                     h('span',{style:{fontSize:'12px',color:'var(--text2)'}},'Req Qty: ',h('strong',{key:'q',style:{color:'var(--text)'}},[line.qty||'—'])),
@@ -1113,7 +1132,7 @@ function BrokerForm({token,showToast}){
       // Pre-populate: one row per requested MPN, plus a second row if cross MPN exists
       setAns((l||[]).map(x=>{
         const qs=[emptyQ(x.mpn,x.qty,x.currency)];
-        if(x.cross_mpn) qs.push(emptyQ(x.cross_mpn,x.qty,x.currency));
+        if(x.crosses&&x.crosses.length>0) x.crosses.filter(c=>c.mpn).forEach(c=>qs.push(emptyQ(c.mpn,x.qty,x.currency)));
         return {line_id:x.id, quotes:qs};
       }));
       setLoading(false);
@@ -1180,10 +1199,11 @@ function BrokerForm({token,showToast}){
             h('div',{style:{width:'24px',height:'24px',borderRadius:'6px',background:'var(--blue)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:'700',flexShrink:0}},[i+1]),
             h('div',null,
               h('span',{className:'mono',style:{fontWeight:'700',fontSize:'14px'}},[line.mpn]),
-              line.cross_mpn&&h('div',{style:{fontSize:'11px',color:'var(--text3)',marginTop:'1px',fontFamily:'var(--mono)'}},
-                'Cross: ',h('span',{style:{fontWeight:'600',color:'var(--text2)'}},[line.cross_mpn]),
-                line.cross_manufacturer&&h('span',null,[` (${line.cross_manufacturer})`])
-              )
+              line.crosses&&line.crosses.filter(c=>c.mpn).map((c,i)=>h('div',{key:i,style:{fontSize:'11px',color:'var(--text3)',marginTop:'1px',fontFamily:'var(--mono)'}},
+                h('i',{className:'ti ti-corner-down-right',style:{fontSize:'10px',marginRight:'3px'}}),
+                h('span',{style:{fontWeight:'600',color:'var(--text2)'}},[c.mpn]),
+                c.mfr&&h('span',null,[` (${c.mfr})`])
+              ))
             ),
             line.manufacturer&&h('span',{style:{color:'var(--text2)',fontSize:'13px'}},[line.manufacturer]),
             line.description&&h('span',{style:{color:'var(--text3)',fontSize:'13px'}},[`— ${line.description}`]),
