@@ -230,8 +230,12 @@ const db = {
   submitResponse: (id,lines) => q(supa.from('broker_responses').update({submitted:true,submitted_at:new Date().toISOString(),lines}).eq('id',id)),
   checkComplete: async rfqId=>{
     const {data}=await supa.from('broker_responses').select('submitted').eq('daily_rfq_id',rfqId);
-    if(data&&data.length>0&&data.every(r=>r.submitted))
+    if(!data||!data.length) return;
+    const total=data.length, done=data.filter(r=>r.submitted).length;
+    if(done===total)
       await q(supa.from('daily_rfqs').update({status:'closed'}).eq('id',rfqId));
+    else if(done>0)
+      await q(supa.from('daily_rfqs').update({status:'partial'}).eq('id',rfqId));
   },
   partHistory: async()=>{
     const {data:responses}=await supa.from('broker_responses').select('*').eq('submitted',true);
@@ -359,7 +363,7 @@ function Login({onLogin,showToast}){
 // ═══════════════════════════════════════════
 //  TODAY PAGE
 // ═══════════════════════════════════════════
-const nL = () => ({mpn:'',description:'',manufacturer:'',qty:'',targetPrice:'',currency:'USD',dateCode:'',dateNeeded:'',comments:''});
+const nL = () => ({mpn:'',description:'',manufacturer:'',qty:'',targetPrice:'',currency:'USD',dateCode:'',dateNeeded:'',comments:'',crossMpn:'',crossMfr:''});
 const CURRENCIES = ['USD','CAD','EUR','GBP','JPY','CNY','HKD','SGD','AUD','CHF','KRW','TWD','MXN','INR'];
 
 function TodayPage({profile,showToast}){
@@ -404,6 +408,7 @@ function TodayPage({profile,showToast}){
         description:newLine.description,manufacturer:newLine.manufacturer,
         qty:newLine.qty,target_price:newLine.targetPrice,currency:newLine.currency||'USD',
         date_code:newLine.dateCode,date_needed:newLine.dateNeeded,comments:newLine.comments,
+        cross_mpn:newLine.crossMpn,cross_manufacturer:newLine.crossMfr,
         entered_by_id:profile.id,entered_by_name:profile.full_name});
       setNewLine(nL());
       await loadLines(rfq.id);
@@ -451,9 +456,10 @@ function TodayPage({profile,showToast}){
   const canDel  = l => isAdmin || l.entered_by_id===profile.id;
   const canSend = isMgmt && rfq?.status==='open' && lines.length>0;
   const statusMap = {
-    open:   {bg:'var(--info-bg)',   c:'var(--info)',    l:'Open — accepting entries'},
-    sent:   {bg:'var(--warning-bg)',c:'var(--warning)', l:'Sent to brokers'},
-    closed: {bg:'var(--success-bg)',c:'var(--success)', l:'All quoted'}
+    open:    {bg:'var(--info-bg)',   c:'var(--info)',    l:'Open — accepting entries'},
+    sent:    {bg:'var(--warning-bg)',c:'var(--warning)', l:'Sent to brokers'},
+    partial: {bg:'#FEF3C7',         c:'#D97706',        l:'Quotes coming in'},
+    closed:  {bg:'var(--success-bg)',c:'var(--success)', l:'All quoted'}
   };
   const st = rfq ? (statusMap[rfq.status]||statusMap.open) : null;
 
@@ -504,7 +510,13 @@ function TodayPage({profile,showToast}){
                 'No parts entered yet. Add the first line below.'))
             : lines.map((l,i)=>h('tr',{key:l.id},
                 h('td',{style:{color:'var(--text3)',fontWeight:'500'}},[i+1]),
-                h('td',null,h('span',{className:'mono',style:{fontWeight:'600',fontSize:'13px'}},[l.mpn])),
+                h('td',null,
+                h('span',{className:'mono',style:{fontWeight:'600',fontSize:'13px'}},[l.mpn]),
+                l.cross_mpn&&h('div',{style:{fontSize:'11px',color:'var(--text3)',marginTop:'2px',fontFamily:'var(--mono)'}},
+                  h('i',{className:'ti ti-corner-down-right',style:{fontSize:'10px',marginRight:'3px'}}),l.cross_mpn,
+                  l.cross_manufacturer&&h('span',{style:{color:'var(--text3)',fontWeight:'400'}},[` (${l.cross_manufacturer})`])
+                )
+              ),
                 h('td',{style:{color:'var(--text2)'}},[l.description||'—']),
                 h('td',{style:{color:'var(--text2)'}},[l.manufacturer||'—']),
                 h('td',null,[l.qty||'—']),
@@ -553,6 +565,14 @@ function TodayPage({profile,showToast}){
         h('label',{className:'lbl'},'Comments'),
         h('input',{value:newLine.comments,onChange:e=>upd('comments',e.target.value),placeholder:'Optional',onKeyDown:e=>e.key==='Enter'&&addLine()})
       ),
+      h('div',{key:'crossmpn',style:{flex:'0 0 130px'}},
+        h('label',{className:'lbl'},h('span',{style:{color:'var(--text3)',fontSize:'10px'}},'Optional — '),'Cross MPN'),
+        h('input',{value:newLine.crossMpn,onChange:e=>upd('crossMpn',e.target.value),placeholder:'Alt MPN'})
+      ),
+      h('div',{key:'crossmfr',style:{flex:'0 0 100px'}},
+        h('label',{className:'lbl'},'Cross Mfr'),
+        h('input',{value:newLine.crossMfr,onChange:e=>upd('crossMfr',e.target.value),placeholder:'Mfr'})
+      ),
       h('div',{key:'btn',style:{paddingTop:'18px'}},
         h('button',{className:'btn-primary',onClick:addLine,disabled:adding},
           h('i',{className:'ti ti-plus'}),adding?'Adding...':'Add part')
@@ -592,8 +612,9 @@ function RFQHistory({nav,setSelRfq}){
     return()=>{live=false;};
   },[]);
   const sc=r=>{
-    if(r.status==='closed') return{bg:'var(--success-bg)',c:'var(--success)',l:'All quoted'};
-    if(r.status==='sent')   return{bg:'var(--warning-bg)',c:'var(--warning)',l:'Sent'};
+    if(r.status==='closed')  return{bg:'var(--success-bg)',c:'var(--success)',l:'All quoted'};
+    if(r.status==='partial') return{bg:'#FEF3C7',         c:'#D97706',       l:'Quotes coming in'};
+    if(r.status==='sent')    return{bg:'var(--warning-bg)',c:'var(--warning)',l:'Sent'};
     return{bg:'var(--info-bg)',c:'var(--info)',l:'Open'};
   };
   const open=async rfq=>{const f=await db.getRfq(rfq.id);setSelRfq(f||rfq);nav('rfq-detail');};
@@ -751,9 +772,9 @@ function exportExcel(rfq,lines,resps,isMgmt){
 }
 
 function RFQDetail({rfq:init,profile,nav}){
-  const [rfq,setRfq]         =useState(init);
-  const [lines,setLines]     =useState([]);
-  const [resps,setResps]     =useState([]);
+  const [rfq,setRfq]          =useState(init);
+  const [lines,setLines]      =useState([]);
+  const [resps,setResps]      =useState([]);
   const [refreshing,setRefreshing]=useState(false);
   const isAdmin=profile.role==='admin', isMgmt=profile.role==='management'||isAdmin;
 
@@ -797,19 +818,24 @@ function RFQDetail({rfq:init,profile,nav}){
 
     refreshing&&lines.length===0?h('div',{style:{textAlign:'center',padding:'3rem',color:'var(--text3)'}},'Loading...'):
     h('div',null,
-      // Always show requested lines
       h('div',{style:{fontSize:'11px',fontWeight:'600',color:'var(--text3)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'10px'}},'Requested Lines'),
       h('div',{className:'card',style:{padding:'0',overflow:'hidden',marginBottom:'1.75rem'}},
         h('table',{style:{width:'100%',borderCollapse:'collapse'}},
           h('thead',null,h('tr',null,
-            ...['#','MPN','Description','Manufacturer','Qty','Target $','Curr','Date Code','Date Needed','Comments','Entered By'].map(t=>h('th',{key:t},t))
+            ...['#','MPN / Cross','Description','Manufacturer','Qty','Target $','Curr','Date Code','Date Needed','Comments','Entered By'].map(t=>h('th',{key:t},t))
           )),
           h('tbody',null,
             lines.length===0
               ? h('tr',null,h('td',{colSpan:11,style:{textAlign:'center',color:'var(--text3)',padding:'2rem'}},'No lines on this RFQ.'))
               : lines.map((l,i)=>h('tr',{key:l.id},
                   h('td',{style:{color:'var(--text3)',fontWeight:'500'}},[i+1]),
-                  h('td',null,h('span',{className:'mono',style:{fontWeight:'600',fontSize:'13px'}},[l.mpn])),
+                  h('td',null,
+                    h('span',{className:'mono',style:{fontWeight:'600',fontSize:'13px'}},[l.mpn]),
+                    l.cross_mpn&&h('div',{style:{fontSize:'11px',color:'var(--text3)',marginTop:'2px',fontFamily:'var(--mono)'}},
+                      h('i',{className:'ti ti-corner-down-right',style:{fontSize:'10px',marginRight:'3px'}}),l.cross_mpn,
+                      l.cross_manufacturer&&h('span',null,[` (${l.cross_manufacturer})`])
+                    )
+                  ),
                   h('td',{style:{color:'var(--text2)'}},[l.description||'—']),
                   h('td',{style:{color:'var(--text2)'}},[l.manufacturer||'—']),
                   h('td',null,[l.qty||'—']),
@@ -823,7 +849,7 @@ function RFQDetail({rfq:init,profile,nav}){
           )
         )
       ),
-      // Broker comparison (only when responses exist)
+
       submitted.length===0
         ? h('div',{className:'card',style:{textAlign:'center',padding:'2.5rem'}},
             h('i',{className:'ti ti-hourglass',style:{fontSize:'32px',color:'var(--text3)',display:'block',marginBottom:'10px'}}),
@@ -832,57 +858,68 @@ function RFQDetail({rfq:init,profile,nav}){
           )
         : h('div',null,
             h('div',{style:{fontSize:'11px',fontWeight:'600',color:'var(--text3)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'14px'}},'Quote Comparison'),
-      ...lines.map(line=>{
-        const quotes=submitted.map((resp,idx)=>({
-          resp, idx,
-          q:(resp.lines||[]).find(x=>x.line_id===line.id)||null
-        }));
-        const prices=quotes.filter(q=>q.q?.unit_price&&!isNaN(+q.q.unit_price)).map(q=>+q.q.unit_price);
-        const minP=prices.length?Math.min(...prices):null;
-        return h('div',{key:line.id,className:'card',style:{marginBottom:'14px'}},
-          h('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'14px',paddingBottom:'12px',borderBottom:'1px solid var(--border)',flexWrap:'wrap'}},
-            h('span',{className:'mono',style:{fontWeight:'700',fontSize:'14px',background:'var(--bg2)',padding:'3px 8px',borderRadius:'6px'}},[line.mpn]),
-            line.description&&h('span',{style:{color:'var(--text2)',fontSize:'13px'}},[line.description]),
-            line.manufacturer&&h('span',{style:{color:'var(--text3)',fontSize:'12px'}},[`· ${line.manufacturer}`]),
-            h('div',{style:{marginLeft:'auto',display:'flex',gap:'12px',flexWrap:'wrap'}},
-              h('span',{style:{fontSize:'12px',color:'var(--text2)'}},'Req Qty: ',h('strong',{key:'q',style:{color:'var(--text)'}},[line.qty||'—'])),
-              line.target_price&&h('span',{key:'t',style:{fontSize:'12px',color:'var(--text2)'}},'Target: ',h('strong',{key:'p',style:{color:'var(--text)'}},[`$${line.target_price} ${line.currency||'USD'}`])),
-              line.date_code&&h('span',{key:'dc',style:{fontSize:'12px',color:'var(--text2)'}},'Req D/C: ',h('strong',{key:'d',style:{color:'var(--text)'}},[line.date_code])),
-              h('span',{key:'ae',className:'entered-by'},h('i',{className:'ti ti-user',style:{fontSize:'11px'}}),[line.entered_by_name])
-            )
-          ),
-          h('div',{style:{display:'grid',gridTemplateColumns:`repeat(${Math.min(submitted.length,3)},minmax(0,1fr))`,gap:'10px'}},
-            ...quotes.map(({resp,idx,q})=>{
-              const isLow=q?.unit_price&&+q.unit_price===minP;
-              return h('div',{key:resp.id,style:{background:isLow?'var(--blue-bg)':'var(--bg2)',borderRadius:'var(--radius)',padding:'12px 14px',border:isLow?'1.5px solid var(--blue-b)':'1px solid var(--border)'}},
-                h('div',{style:{fontSize:'12px',fontWeight:'600',marginBottom:'10px',display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}},
-                  isMgmt?resp.broker_name:`Supplier ${idx+1}`,
-                  isLow&&h('span',{className:'badge',style:{background:'var(--blue)',color:'#fff',fontSize:'10px',padding:'1px 8px'}},'Best')
-                ),
-                q?h('div',null,
-                  q.unit_price&&h('div',{style:{fontSize:'20px',fontWeight:'700',color:isLow?'var(--blue)':'var(--text)',marginBottom:'8px',display:'flex',alignItems:'baseline',gap:'6px'}},
-                    `$${(+q.unit_price).toFixed(4)}`,
-                    h('span',{style:{fontSize:'12px',fontWeight:'500',color:isLow?'var(--blue)':'var(--text2)',background:isLow?'var(--blue-bg)':'var(--bg3)',padding:'1px 6px',borderRadius:'4px'}},[q.currency||'USD'])
-                  ),
-                  h('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:'12px'}},
-                    ...[['Quoted MPN',q.mpn_quoted],['Quoted Qty',q.quoted_qty],['Manufacturer',q.manufacturer],
-                        ['D/C Quoted',q.date_code_quoted],['Availability',q.lead_time],['MPQ',q.mpq],['MOQ',q.moq],['Notes',q.comments]]
-                      .filter(([,v])=>v)
-                      .map(([k,v])=>h('tr',{key:k},
-                        h('td',{style:{color:'var(--text3)',paddingBottom:'4px',paddingRight:'10px',whiteSpace:'nowrap',verticalAlign:'top',fontWeight:'500'}},[k]),
-                        h('td',{style:{paddingBottom:'4px',wordBreak:'break-word',color:'var(--text2)'}},[v])
-                      ))
+            ...lines.map(line=>{
+              // Get all quote rows per broker for this line
+              const brokerQuotes=submitted.map((resp,idx)=>({
+                resp, idx,
+                quotes:(resp.lines||[]).filter(x=>x.line_id===line.id)
+              }));
+              // Best price across all brokers all rows
+              const allPrices=brokerQuotes.flatMap(b=>b.quotes.filter(q=>q.unit_price&&!isNaN(+q.unit_price)).map(q=>+q.unit_price));
+              const minP=allPrices.length?Math.min(...allPrices):null;
+
+              return h('div',{key:line.id,className:'card',style:{marginBottom:'14px'}},
+                h('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'14px',paddingBottom:'12px',borderBottom:'1px solid var(--border)',flexWrap:'wrap'}},
+                  h('span',{className:'mono',style:{fontWeight:'700',fontSize:'14px',background:'var(--bg2)',padding:'3px 8px',borderRadius:'6px'}},[line.mpn]),
+                  line.cross_mpn&&h('span',{style:{fontSize:'12px',color:'var(--text3)',fontFamily:'var(--mono)'}},
+                    h('i',{className:'ti ti-corner-down-right',style:{fontSize:'11px',marginRight:'3px'}}),line.cross_mpn),
+                  line.description&&h('span',{style:{color:'var(--text2)',fontSize:'13px'}},[line.description]),
+                  h('div',{style:{marginLeft:'auto',display:'flex',gap:'12px',flexWrap:'wrap'}},
+                    h('span',{style:{fontSize:'12px',color:'var(--text2)'}},'Req Qty: ',h('strong',{key:'q',style:{color:'var(--text)'}},[line.qty||'—'])),
+                    line.target_price&&h('span',{key:'t',style:{fontSize:'12px',color:'var(--text2)'}},'Target: ',h('strong',{key:'p',style:{color:'var(--text)'}},[`$${line.target_price} ${line.currency||'USD'}`])),
+                    h('span',{key:'ae',className:'entered-by'},h('i',{className:'ti ti-user',style:{fontSize:'11px'}}),[line.entered_by_name])
                   )
-                ):h('div',{style:{color:'var(--text3)',fontStyle:'italic',fontSize:'12px'}},'No quote submitted')
+                ),
+                h('div',{style:{display:'grid',gridTemplateColumns:`repeat(${Math.min(submitted.length,3)},minmax(0,1fr))`,gap:'10px'}},
+                  ...brokerQuotes.map(({resp,idx,quotes})=>{
+                    const hasQuotes=quotes.length>0;
+                    const colBest=quotes.filter(q=>q.unit_price&&!isNaN(+q.unit_price)).map(q=>+q.unit_price);
+                    const colMin=colBest.length?Math.min(...colBest):null;
+                    const isColBest=colMin!==null&&colMin===minP;
+                    return h('div',{key:resp.id,style:{background:isColBest?'var(--blue-bg)':'var(--bg2)',borderRadius:'var(--radius)',padding:'10px 12px',border:isColBest?'1.5px solid var(--blue-b)':'1px solid var(--border)'}},
+                      h('div',{style:{fontSize:'12px',fontWeight:'600',marginBottom:'10px',display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}},
+                        isMgmt?resp.broker_name:`Supplier ${idx+1}`,
+                        isColBest&&h('span',{className:'badge',style:{background:'var(--blue)',color:'#fff',fontSize:'10px',padding:'1px 8px'}},'Best')
+                      ),
+                      hasQuotes
+                        ? h('div',null,
+                            ...quotes.map((q,qi)=>h('div',{key:qi,style:{...(qi>0?{marginTop:'10px',paddingTop:'10px',borderTop:'1px dashed var(--border)'}:{})}},
+                              qi>0&&h('div',{style:{fontSize:'10px',color:'var(--text3)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'6px'}},'Cross / Alternate'),
+                              q.unit_price&&h('div',{style:{display:'flex',alignItems:'baseline',gap:'6px',marginBottom:'8px'}},
+                                h('span',{style:{fontSize:'18px',fontWeight:'700',color:+q.unit_price===minP?'var(--blue)':'var(--text)'}},[`$${(+q.unit_price).toFixed(4)}`]),
+                                h('span',{className:'badge',style:{background:+q.unit_price===minP?'var(--blue)':'var(--bg3)',color:+q.unit_price===minP?'#fff':'var(--text2)',fontSize:'10px',padding:'1px 5px'}},[q.currency||'USD'])
+                              ),
+                              h('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:'12px'}},
+                                ...[['MPN',q.mpn_quoted],['Quoted Qty',q.quoted_qty],['MFG',q.manufacturer],['D/C',q.date_code_quoted],['Avail.',q.lead_time],['MPQ',q.mpq],['MOQ',q.moq],['Notes',q.comments]]
+                                  .filter(([,v])=>v)
+                                  .map(([k,v])=>h('tr',{key:k},
+                                    h('td',{style:{color:'var(--text3)',paddingBottom:'3px',paddingRight:'8px',whiteSpace:'nowrap',verticalAlign:'top',fontWeight:'500',fontSize:'11px'}},[k]),
+                                    h('td',{style:{paddingBottom:'3px',wordBreak:'break-word',color:'var(--text2)'}},[v])
+                                  ))
+                              )
+                            ))
+                          )
+                        : h('div',{style:{color:'var(--text3)',fontStyle:'italic',fontSize:'12px'}},'No quote submitted')
+                    );
+                  })
+                )
               );
             })
           )
-        );
-      })
     )
-  )
   );
 }
+
 
 //  ADMIN PAGE (tabs: Users | Brokers | History)
 // ═══════════════════════════════════════════
@@ -1027,8 +1064,9 @@ function AdminRFQs({nav,setSelRfq,showToast}){
     return ()=>{live=false;};
   },[]);
   const sc=r=>{
-    if(r.status==='closed') return {bg:'var(--success-bg)',c:'var(--success)',l:'All quoted'};
-    if(r.status==='sent')   return {bg:'var(--warning-bg)',c:'var(--warning)',l:'Sent'};
+    if(r.status==='closed')  return {bg:'var(--success-bg)',c:'var(--success)',l:'All quoted'};
+    if(r.status==='partial') return {bg:'#FEF3C7',         c:'#D97706',       l:'Quotes coming in'};
+    if(r.status==='sent')    return {bg:'var(--warning-bg)',c:'var(--warning)',l:'Sent'};
     return {bg:'var(--info-bg)',c:'var(--info)',l:'Open'};
   };
   const open=async rfq=>{ const f=await db.getRfq(rfq.id); setSelRfq(f||rfq); nav('rfq-detail'); };
@@ -1057,11 +1095,13 @@ function AdminRFQs({nav,setSelRfq,showToast}){
 //  BROKER FORM (unauthenticated, via link)
 // ═══════════════════════════════════════════
 function BrokerForm({token,showToast}){
-  const [resp,setResp]   =useState(null);
-  const [lines,setLines] =useState([]);
-  const [ans,setAns]     =useState([]);
+  const [resp,setResp]    =useState(null);
+  const [lines,setLines]  =useState([]);
+  const [ans,setAns]      =useState([]);
   const [loading,setLoading]=useState(true);
   const [saving,setSaving]  =useState(false);
+
+  const emptyQ=(mpn,qty,cur)=>({mpn_quoted:mpn||'',quoted_qty:qty||'',manufacturer:'',unit_price:'',currency:cur||'USD',date_code_quoted:'',lead_time:'',mpq:'',moq:'',comments:''});
 
   useEffect(()=>{
     if(!token) return;
@@ -1070,19 +1110,27 @@ function BrokerForm({token,showToast}){
       setResp(r);
       const l=await db.lines(r.daily_rfq_id);
       setLines(l||[]);
-      setAns((l||[]).map(x=>({line_id:x.id,mpn_quoted:x.mpn,quoted_qty:x.qty||'',
-        manufacturer:'',unit_price:'',currency:x.currency||'USD',date_code_quoted:'',lead_time:'',mpq:'',moq:'',comments:''})));
+      // Pre-populate: one row per requested MPN, plus a second row if cross MPN exists
+      setAns((l||[]).map(x=>{
+        const qs=[emptyQ(x.mpn,x.qty,x.currency)];
+        if(x.cross_mpn) qs.push(emptyQ(x.cross_mpn,x.qty,x.currency));
+        return {line_id:x.id, quotes:qs};
+      }));
       setLoading(false);
     });
   },[token]);
 
-  const upd=(lid,f,v)=>setAns(a=>a.map(x=>x.line_id===lid?{...x,[f]:v}:x));
+  const updQ=(lid,qi,f,v)=>setAns(a=>a.map(x=>x.line_id===lid?{...x,quotes:x.quotes.map((q,i)=>i===qi?{...q,[f]:v}:q)}:x));
+  const addQ =(lid)       =>setAns(a=>a.map(x=>x.line_id===lid?{...x,quotes:[...x.quotes,emptyQ()]}:x));
+  const delQ =(lid,qi)    =>setAns(a=>a.map(x=>x.line_id===lid&&x.quotes.length>1?{...x,quotes:x.quotes.filter((_,i)=>i!==qi)}:x));
 
   const submit=async()=>{
     setSaving(true);
     try{
-      await db.submitResponse(resp.id,ans);
-      await db.checkComplete(resp.daily_rfq_id).catch(()=>{}); // auto-close if all submitted
+      // Flatten: multiple quote rows per line all go into the lines array
+      const flat=ans.flatMap(a=>a.quotes.filter(q=>q.unit_price).map(q=>({...q,line_id:a.line_id})));
+      await db.submitResponse(resp.id,flat);
+      await db.checkComplete(resp.daily_rfq_id).catch(()=>{});
       setResp(r=>({...r,submitted:true}));
       showToast('Quote submitted successfully');
     }catch(e){showToast(e.message,'error');}
@@ -1102,15 +1150,15 @@ function BrokerForm({token,showToast}){
       h('h2',null,'Already submitted'),h('p',null,[resp.daily_rfq_id])),
     h('div',{style:{textAlign:'center',padding:'3rem',color:'var(--text2)'}},'Your quote was already received. Thank you!'));
 
-  const fields=[
-    {f:'mpn_quoted',l:'MPN Quoted',ph:'Same or alternate MPN'},
-    {f:'quoted_qty',l:'Quoted Qty',t:'number',ph:'0'},
-    {f:'manufacturer',l:'Manufacturer',ph:'e.g. TI, Vishay'},
-    {f:'date_code_quoted',l:'Date Code',ph:'e.g. 2024+'},
-    {f:'lead_time',l:'Lead Time / Availability',ph:'In stock / 4-6 wks'},
-    {f:'mpq',l:'MPQ',t:'number',ph:'1'},
-    {f:'moq',l:'MOQ',t:'number',ph:'1'},
-    {f:'comments',l:'Notes / Comments',ph:'Optional'},
+  const qFields=[
+    {f:'mpn_quoted',      l:'MPN Quoted',               ph:'Same or alternate MPN'},
+    {f:'quoted_qty',      l:'Quoted Qty',      t:'number',ph:'0'},
+    {f:'manufacturer',    l:'Manufacturer',               ph:'e.g. TI, Vishay'},
+    {f:'date_code_quoted',l:'Date Code',                  ph:'e.g. 2024+'},
+    {f:'lead_time',       l:'Lead Time / Avail.',         ph:'In stock / 4-6 wks'},
+    {f:'mpq',             l:'MPQ',             t:'number',ph:'1'},
+    {f:'moq',             l:'MOQ',             t:'number',ph:'1'},
+    {f:'comments',        l:'Notes',                      ph:'Optional'},
   ];
 
   return h('div',null,
@@ -1124,12 +1172,19 @@ function BrokerForm({token,showToast}){
     ),
     h('div',{style:{maxWidth:'1200px',margin:'0 auto',padding:'2rem 1.5rem'}},
       ...lines.map((line,i)=>{
-        const a=ans.find(x=>x.line_id===line.id);
-        if(!a) return null;
-        return h('div',{key:line.id,className:'card',style:{marginBottom:'12px'}},
+        const lineAns=ans.find(x=>x.line_id===line.id);
+        if(!lineAns) return null;
+        return h('div',{key:line.id,className:'card',style:{marginBottom:'14px'}},
+          // Line header
           h('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'14px',paddingBottom:'12px',borderBottom:'1px solid var(--border)',flexWrap:'wrap'}},
             h('div',{style:{width:'24px',height:'24px',borderRadius:'6px',background:'var(--blue)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:'700',flexShrink:0}},[i+1]),
-            h('span',{className:'mono',style:{fontWeight:'700',fontSize:'14px'}},[line.mpn]),
+            h('div',null,
+              h('span',{className:'mono',style:{fontWeight:'700',fontSize:'14px'}},[line.mpn]),
+              line.cross_mpn&&h('div',{style:{fontSize:'11px',color:'var(--text3)',marginTop:'1px',fontFamily:'var(--mono)'}},
+                'Cross: ',h('span',{style:{fontWeight:'600',color:'var(--text2)'}},[line.cross_mpn]),
+                line.cross_manufacturer&&h('span',null,[` (${line.cross_manufacturer})`])
+              )
+            ),
             line.manufacturer&&h('span',{style:{color:'var(--text2)',fontSize:'13px'}},[line.manufacturer]),
             line.description&&h('span',{style:{color:'var(--text3)',fontSize:'13px'}},[`— ${line.description}`]),
             h('div',{style:{marginLeft:'auto',display:'flex',gap:'14px',flexWrap:'wrap'}},
@@ -1138,23 +1193,35 @@ function BrokerForm({token,showToast}){
               line.date_code&&h('span',{key:'dc',style:{fontSize:'12px',color:'var(--text2)'}},'Req D/C: ',h('strong',{key:'d',style:{color:'var(--text)'}},[line.date_code]))
             )
           ),
-          h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))',gap:'12px'}},
-            h('div',{key:'price_row',style:{display:'flex',gap:'6px',alignItems:'flex-end'}},
-              h('div',{style:{flex:1}},
-                h('label',{className:'lbl'},'Unit Price'),
-                h('input',{type:'number',value:a.unit_price,onChange:e=>upd(line.id,'unit_price',e.target.value),placeholder:'0.0000'})
-              ),
-              h('div',{style:{width:'72px'}},
-                h('label',{className:'lbl'},'Curr'),
-                h('select',{value:a.currency,onChange:e=>upd(line.id,'currency',e.target.value)},
-                  ...CURRENCIES.map(c=>h('option',{key:c,value:c},c)))
-              )
+          // Quote rows
+          ...lineAns.quotes.map((q,qi)=>h('div',{key:qi,style:{background:'var(--bg2)',borderRadius:'var(--radius)',padding:'12px 14px',marginBottom:'8px',position:'relative'}},
+            h('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'10px'}},
+              h('span',{style:{fontSize:'11px',fontWeight:'600',color:'var(--text3)',textTransform:'uppercase',letterSpacing:'.06em'}},
+                qi===0?'Quote':'Additional quote'),
+              lineAns.quotes.length>1&&h('button',{style:{marginLeft:'auto',cursor:'pointer',padding:'2px 8px',borderRadius:'var(--radius)',border:'none',background:'transparent',color:'var(--danger)',fontSize:'11px',fontFamily:'var(--font)'},
+                onClick:()=>delQ(line.id,qi)},h('i',{className:'ti ti-x',style:{fontSize:'11px'}}),' Remove')
             ),
-            ...fields.map(({f,l,t,ph})=>h('div',{key:f},
-              h('label',{className:'lbl'},[l]),
-              h('input',{type:t||'text',value:a[f],onChange:e=>upd(line.id,f,e.target.value),placeholder:ph})
-            ))
-          )
+            h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:'10px'}},
+              h('div',{key:'price_row',style:{display:'flex',gap:'6px',alignItems:'flex-end'}},
+                h('div',{style:{flex:1}},
+                  h('label',{className:'lbl'},'Unit Price'),
+                  h('input',{type:'number',value:q.unit_price,onChange:e=>updQ(line.id,qi,'unit_price',e.target.value),placeholder:'0.0000'})
+                ),
+                h('div',{style:{width:'72px'}},
+                  h('label',{className:'lbl'},'Curr'),
+                  h('select',{value:q.currency,onChange:e=>updQ(line.id,qi,'currency',e.target.value)},
+                    ...CURRENCIES.map(c=>h('option',{key:c,value:c},c)))
+                )
+              ),
+              ...qFields.map(({f,l,t,ph})=>h('div',{key:f},
+                h('label',{className:'lbl'},[l]),
+                h('input',{type:t||'text',value:q[f],onChange:e=>updQ(line.id,qi,f,e.target.value),placeholder:ph})
+              ))
+            )
+          )),
+          // Add quote button
+          h('button',{className:'btn',style:{fontSize:'12px',marginTop:'4px'},onClick:()=>addQ(line.id)},
+            h('i',{className:'ti ti-plus'}),'Add another quote for this line')
         );
       }),
       h('div',{style:{display:'flex',justifyContent:'flex-end',marginTop:'1rem',paddingBottom:'3rem'}},
@@ -1163,6 +1230,7 @@ function BrokerForm({token,showToast}){
     )
   );
 }
+
 
 //  ERROR BOUNDARY
 // ═══════════════════════════════════════════
