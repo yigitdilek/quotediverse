@@ -81,6 +81,9 @@ tr:hover td{background:var(--bg2)}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
 .entered-by{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);background:var(--bg2);padding:2px 8px;border-radius:20px}
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:flex;align-items:center;justify-content:center;padding:1rem}
+.modal{background:var(--surface);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,.2);padding:1.75rem;width:100%;max-width:420px;animation:modalIn .15s ease}
+@keyframes modalIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
 </style>
 </head>
 <body>
@@ -268,6 +271,25 @@ function Toast({msg,type}){
   return h('div',{className:'toast',style:{background:bg,color:c,border:`1px solid ${b}`}},
     h('i',{className:`ti ${ic}`}),msg);
 }
+
+function ConfirmModal({title,message,confirmLabel,confirmClass,onConfirm,onCancel}){
+  return h('div',{className:'modal-backdrop',onClick:onCancel},
+    h('div',{className:'modal',onClick:e=>e.stopPropagation()},
+      h('div',{style:{display:'flex',alignItems:'flex-start',gap:'14px',marginBottom:'1.25rem'}},
+        h('div',{style:{width:'40px',height:'40px',borderRadius:'50%',background:'var(--warning-bg)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}},
+          h('i',{className:'ti ti-alert-triangle',style:{fontSize:'20px',color:'var(--warning)'}})),
+        h('div',null,
+          h('div',{style:{fontWeight:'600',fontSize:'15px',marginBottom:'4px'}},[title]),
+          h('p',{style:{fontSize:'13px',color:'var(--text2)',lineHeight:'1.6'}},[message])
+        )
+      ),
+      h('div',{style:{display:'flex',justifyContent:'flex-end',gap:'10px'}},
+        h('button',{className:'btn',onClick:onCancel},'Cancel'),
+        h('button',{className:confirmClass||'btn-primary',onClick:onConfirm},[confirmLabel||'Confirm'])
+      )
+    )
+  );
+}
 function RoleBadge({role}){
   return h('span',{className:`role-badge role-${role}`},role);
 }
@@ -342,6 +364,10 @@ function TodayPage({profile,showToast}){
   const [adding,setAdding] =useState(false);
   const [sending,setSending]=useState(false);
 
+  const [modal,setModal]=useState(null);
+  const confirm=(opts)=>new Promise(resolve=>{
+    setModal({...opts,onConfirm:()=>{setModal(null);resolve(true);},onCancel:()=>{setModal(null);resolve(false);}});
+  });
   const isMgmt = profile.role==='management'||profile.role==='admin';
   const isAdmin= profile.role==='admin';
 
@@ -379,12 +405,19 @@ function TodayPage({profile,showToast}){
   };
 
   const delLine = async line=>{
-    if(!window.confirm('Delete this line?')) return;
+    const ok = await confirm({title:'Delete line?',message:`Remove ${line.mpn} from today's RFQ?`,confirmLabel:'Delete',confirmClass:'btn-danger'});
+    if(!ok) return;
     try{ await db.deleteLine(line.id); }catch(e){ showToast(e.message,'error'); }
   };
 
   const sendBrokers = async()=>{
-    if(!window.confirm(`Send ${lines.length} line items to all active brokers?`)) return;
+    const ok = await confirm({
+      title:'Send to brokers?',
+      message:`This will email all ${lines.length} line item${lines.length!==1?'s':''} to every active broker. This cannot be undone.`,
+      confirmLabel:'Yes, send now',
+      confirmClass:'btn-success'
+    });
+    if(!ok) return;
     setSending(true);
     try{
       const brokers = await db.activeBrokers();
@@ -423,6 +456,7 @@ function TodayPage({profile,showToast}){
     h('i',{className:'ti ti-loader-2',style:{fontSize:'32px',display:'block',marginBottom:'8px'}}),'Loading...');
 
   return h('div',{className:'page'},
+    modal&&h(ConfirmModal,modal),
     h('div',{className:'page-header'},
       h('div',null,
         h('h1',{className:'page-title'},`Today's RFQ — ${fmtDate(rfq?.rfq_date)}`),
