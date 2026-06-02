@@ -773,21 +773,14 @@ function PartHistory({profile}){
 // ═══════════════════════════════════════════
 function downloadTemplate(){
   if(typeof XLSX==='undefined'){alert('Excel library not loaded');return;}
-  const headers=['MPN','Description','Manufacturer','Qty','Target Price','Currency',
+  const headers=['AE','MPN *','Description','Manufacturer','Qty','Target Price','Currency',
     'Date Code','Date Needed','Comments',
     'Cross MPN 1','Cross Mfr 1','Cross MPN 2','Cross Mfr 2','Cross MPN 3','Cross Mfr 3'];
-  const sample=['LM358DR','Op-amp, dual','TI','1000','0.25','USD','2024+','2026-06-30',
-    'No substitutes','LM358D','ON Semi','','','',''];
-  const ws=XLSX.utils.aoa_to_sheet([headers,sample]);
-  ws['!cols']=[{wch:15},{wch:22},{wch:15},{wch:8},{wch:14},{wch:10},{wch:11},{wch:14},
-    {wch:25},{wch:15},{wch:14},{wch:15},{wch:14},{wch:15},{wch:14}];
-  // Style header row bold
-  headers.forEach((_,i)=>{
-    const cell=XLSX.utils.encode_cell({r:0,c:i});
-    if(ws[cell]) ws[cell].s={font:{bold:true}};
-  });
+  const ws=XLSX.utils.aoa_to_sheet([headers]);
+  ws['!cols']=[{wch:16},{wch:20},{wch:24},{wch:16},{wch:8},{wch:13},{wch:10},
+    {wch:12},{wch:14},{wch:28},{wch:16},{wch:14},{wch:16},{wch:14},{wch:16},{wch:14}];
   const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'RFQ Import');
+  XLSX.utils.book_append_sheet(wb,ws,'Daily RFQ');
   XLSX.writeFile(wb,'QuoteDiverse_RFQ_Template.xlsx');
 }
 
@@ -802,6 +795,7 @@ async function parseExcelImport(file){
         // Flexible header mapping — case-insensitive, ignore spaces/symbols
         const norm=s=>String(s||'').toLowerCase().replace(/[\s\/\-_$#]+/g,'');
         const MAP={
+          'ae':'ae','salesrep':'ae','rep':'ae','salesperson':'ae',
           mpn:'mpn',
           description:'description',
           manufacturer:'manufacturer',mfr:'manufacturer',
@@ -872,7 +866,8 @@ function ImportModal({rfq,profile,onClose,onImport,showToast}){
           mpn:line.mpn,description:line.description,manufacturer:line.manufacturer,
           qty:line.qty,target_price:line.targetPrice,currency:line.currency||'USD',
           date_code:line.dateCode,date_needed:line.dateNeeded,comments:line.comments,
-          crosses:line.crosses,entered_by_id:profile.id,entered_by_name:profile.full_name});
+          crosses:line.crosses,entered_by_id:profile.id,
+          entered_by_name:line.ae||profile.full_name});
         ok++;
       }catch(e){fail++;}
     }
