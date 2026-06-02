@@ -376,6 +376,7 @@ function TodayPage({profile,showToast}){
   const [sending,setSending]=useState(false);
 
   const [modal,setModal]=useState(null);
+  const [showImport,setShowImport]=useState(false);
   const confirm=(opts)=>new Promise(resolve=>{
     setModal({...opts,onConfirm:()=>{setModal(null);resolve(true);},onCancel:()=>{setModal(null);resolve(false);}});
   });
@@ -470,6 +471,7 @@ function TodayPage({profile,showToast}){
 
   return h('div',{className:'page'},
     modal&&h(ConfirmModal,modal),
+    showImport&&rfq&&h(ImportModal,{rfq,profile,onClose:()=>setShowImport(false),onImport:()=>loadLines(rfq.id),showToast}),
     h('div',{className:'page-header'},
       h('div',null,
         h('h1',{className:'page-title'},`Today's RFQ — ${fmtDate(rfq?.rfq_date)}`),
@@ -480,6 +482,7 @@ function TodayPage({profile,showToast}){
       ),
       h('div',{style:{display:'flex',gap:'8px'}},
         h('button',{className:'btn',onClick:load},h('i',{className:'ti ti-refresh'}),'Refresh'),
+        isMgmt&&rfq?.status==='open'&&h('button',{className:'btn',onClick:()=>setShowImport(true)},h('i',{className:'ti ti-file-import'}),'Import Excel'),
         canSend&&h('button',{className:'btn-success',onClick:sendBrokers,disabled:sending},
           h('i',{className:sending?'ti ti-loader-2':'ti ti-send'}),
           sending?'Sending emails...':'Send to brokers')
@@ -765,6 +768,193 @@ function PartHistory({profile}){
 // ═══════════════════════════════════════════
 //  RFQ DETAIL (comparison)
 // ═══════════════════════════════════════════
+// ═══════════════════════════════════════════
+//  EXCEL IMPORT (management + admin only)
+// ═══════════════════════════════════════════
+function downloadTemplate(){
+  if(typeof XLSX==='undefined'){alert('Excel library not loaded');return;}
+  const headers=['MPN','Description','Manufacturer','Qty','Target Price','Currency',
+    'Date Code','Date Needed','Comments',
+    'Cross MPN 1','Cross Mfr 1','Cross MPN 2','Cross Mfr 2','Cross MPN 3','Cross Mfr 3'];
+  const sample=['LM358DR','Op-amp, dual','TI','1000','0.25','USD','2024+','2026-06-30',
+    'No substitutes','LM358D','ON Semi','','','',''];
+  const ws=XLSX.utils.aoa_to_sheet([headers,sample]);
+  ws['!cols']=[{wch:15},{wch:22},{wch:15},{wch:8},{wch:14},{wch:10},{wch:11},{wch:14},
+    {wch:25},{wch:15},{wch:14},{wch:15},{wch:14},{wch:15},{wch:14}];
+  // Style header row bold
+  headers.forEach((_,i)=>{
+    const cell=XLSX.utils.encode_cell({r:0,c:i});
+    if(ws[cell]) ws[cell].s={font:{bold:true}};
+  });
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'RFQ Import');
+  XLSX.writeFile(wb,'QuoteDiverse_RFQ_Template.xlsx');
+}
+
+async function parseExcelImport(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      try{
+        const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const raw=XLSX.utils.sheet_to_json(ws,{raw:false,defval:''});
+        // Flexible header mapping — case-insensitive, ignore spaces/symbols
+        const norm=s=>String(s||'').toLowerCase().replace(/[\s\/\-_$#]+/g,'');
+        const MAP={
+          mpn:'mpn',
+          description:'description',
+          manufacturer:'manufacturer',mfr:'manufacturer',
+          qty:'qty',quantity:'qty',
+          targetprice:'targetPrice',target:'targetPrice',
+          currency:'currency',curr:'currency',
+          datecode:'dateCode',dc:'dateCode',
+          dateneeded:'dateNeeded',neededby:'dateNeeded',
+          comments:'comments',notes:'comments',
+          crossmpn1:'cmpn1',altmpn1:'cmpn1',
+          crossmfr1:'cmfr1',altmfr1:'cmfr1',
+          crossmpn2:'cmpn2',altmpn2:'cmpn2',
+          crossmfr2:'cmfr2',altmfr2:'cmfr2',
+          crossmpn3:'cmpn3',altmpn3:'cmpn3',
+          crossmfr3:'cmfr3',altmfr3:'cmfr3',
+        };
+        const lines=raw
+          .filter(r=>Object.values(r).some(v=>String(v).trim()))
+          .map(r=>{
+            const m={};
+            for(const [k,v] of Object.entries(r)){
+              const field=MAP[norm(k)];
+              if(field) m[field]=String(v||'').trim();
+            }
+            return m;
+          })
+          .filter(m=>m.mpn)
+          .map(m=>({
+            mpn:m.mpn,description:m.description||'',manufacturer:m.manufacturer||'',
+            qty:m.qty||'',targetPrice:m.targetPrice||'',
+            currency:(m.currency||'USD').toUpperCase(),
+            dateCode:m.dateCode||'',dateNeeded:m.dateNeeded||'',comments:m.comments||'',
+            crosses:[
+              m.cmpn1?{mpn:m.cmpn1,mfr:m.cmfr1||''}:null,
+              m.cmpn2?{mpn:m.cmpn2,mfr:m.cmfr2||''}:null,
+              m.cmpn3?{mpn:m.cmpn3,mfr:m.cmfr3||''}:null,
+            ].filter(Boolean)
+          }));
+        resolve(lines);
+      }catch(err){reject(err);}
+    };
+    reader.onerror=()=>reject(new Error('Failed to read file'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function ImportModal({rfq,profile,onClose,onImport,showToast}){
+  const [preview, setPreview] = useState(null);
+  const [reading, setReading] = useState(false);
+  const [importing,setImporting]=useState(false);
+  const fileRef = React.useRef();
+
+  const handleFile=async f=>{
+    if(!f) return;
+    setReading(true); setPreview(null);
+    try{ setPreview(await parseExcelImport(f)); }
+    catch(e){ showToast('Could not read file: '+e.message,'error'); }
+    setReading(false);
+  };
+
+  const doImport=async()=>{
+    if(!preview?.length) return;
+    setImporting(true);
+    let ok=0,fail=0;
+    for(const line of preview){
+      try{
+        await db.addLine({id:uid(),daily_rfq_id:rfq.id,
+          mpn:line.mpn,description:line.description,manufacturer:line.manufacturer,
+          qty:line.qty,target_price:line.targetPrice,currency:line.currency||'USD',
+          date_code:line.dateCode,date_needed:line.dateNeeded,comments:line.comments,
+          crosses:line.crosses,entered_by_id:profile.id,entered_by_name:profile.full_name});
+        ok++;
+      }catch(e){fail++;}
+    }
+    setImporting(false);
+    showToast(fail===0?`${ok} line${ok!==1?'s':''} imported`:`${ok} imported, ${fail} failed`,fail?'error':'success');
+    onImport(); onClose();
+  };
+
+  return h('div',{className:'modal-backdrop',onClick:onClose},
+    h('div',{className:'modal',style:{maxWidth:'780px',width:'100%'},onClick:e=>e.stopPropagation()},
+      h('div',{style:{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:'1.25rem'}},
+        h('div',null,
+          h('h2',{style:{fontSize:'16px',fontWeight:'600',marginBottom:'3px'}},'Import from Excel'),
+          h('p',{className:'muted',style:{fontSize:'13px'}},'Upload a filled template to add lines to today\'s RFQ')
+        ),
+        h('button',{className:'btn',style:{padding:'4px 10px',fontSize:'16px'},onClick:onClose},'×')
+      ),
+
+      // Step 1 — download template
+      h('div',{style:{background:'var(--blue-bg)',border:'1px solid var(--blue-b)',borderRadius:'var(--radius)',padding:'12px 16px',marginBottom:'1.25rem',display:'flex',alignItems:'center',justifyContent:'space-between',gap:'12px',flexWrap:'wrap'}},
+        h('div',null,
+          h('p',{style:{fontWeight:'600',fontSize:'13px',color:'var(--blue)',marginBottom:'2px'}},'Step 1 — Download the template'),
+          h('p',{style:{fontSize:'12px',color:'var(--text2)'}},'Fill in your parts and save as .xlsx — don\'t rename the columns')
+        ),
+        h('button',{className:'btn-primary',style:{fontSize:'12px',flexShrink:0},onClick:downloadTemplate},
+          h('i',{className:'ti ti-download'}),'Download Template (.xlsx)')
+      ),
+
+      // Step 2 — upload
+      h('div',{style:{marginBottom:'1.25rem'}},
+        h('p',{style:{fontWeight:'600',fontSize:'13px',marginBottom:'8px'}},'Step 2 — Upload your filled file'),
+        h('label',{style:{display:'block',border:`2px dashed ${preview?'var(--success-b)':'var(--border2)'}`,borderRadius:'var(--radius-lg)',padding:'1.75rem',textAlign:'center',cursor:'pointer',background:'var(--bg2)',transition:'border-color .15s'}},
+          h('input',{ref:fileRef,type:'file',accept:'.xlsx,.xls,.csv',style:{display:'none'},onChange:e=>handleFile(e.target.files[0])}),
+          reading
+            ? h('p',{className:'muted'},'Reading file...')
+            : preview
+              ? h('div',null,
+                  h('i',{className:'ti ti-circle-check',style:{fontSize:'28px',color:'var(--success)',display:'block',marginBottom:'6px'}}),
+                  h('p',{style:{fontWeight:'500',color:'var(--success)'}},[`${preview.length} line${preview.length!==1?'s':''} ready`]),
+                  h('p',{style:{fontSize:'12px',color:'var(--text3)'}},'Click to choose a different file')
+                )
+              : h('div',null,
+                  h('i',{className:'ti ti-file-spreadsheet',style:{fontSize:'32px',color:'var(--text3)',display:'block',marginBottom:'8px'}}),
+                  h('p',{style:{fontWeight:'500',color:'var(--text2)'}},'Click to choose file'),
+                  h('p',{style:{fontSize:'12px',color:'var(--text3)'}},'Accepts .xlsx · .xls · .csv')
+                )
+        )
+      ),
+
+      // Preview table
+      preview&&preview.length===0&&h('div',{style:{textAlign:'center',padding:'1rem',color:'var(--danger)',fontSize:'13px'}},
+        'No valid rows found — check that the MPN column is filled and the file uses the template headers.'
+      ),
+      preview&&preview.length>0&&h('div',{style:{marginBottom:'1.25rem'}},
+        h('p',{style:{fontWeight:'500',fontSize:'13px',marginBottom:'8px'}},`Preview — ${preview.length} line${preview.length!==1?'s':''}`),
+        h('div',{style:{overflowX:'auto',maxHeight:'240px',overflowY:'auto',border:'1px solid var(--border)',borderRadius:'var(--radius)'}},
+          h('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:'12px',minWidth:'680px'}},
+            h('thead',null,h('tr',null,...['MPN','Description','Manufacturer','Qty','Target','Curr','Date Code','Alternatives'].map(c=>h('th',{key:c,style:{position:'sticky',top:0,background:'var(--bg2)',zIndex:1}},c)))),
+            h('tbody',null,...preview.map((l,i)=>h('tr',{key:i},
+              h('td',null,h('span',{className:'mono',style:{fontWeight:'700'}},[l.mpn])),
+              h('td',{style:{color:'var(--text2)'}},[l.description||'—']),
+              h('td',{style:{color:'var(--text2)'}},[l.manufacturer||'—']),
+              h('td',null,[l.qty||'—']),
+              h('td',null,[l.targetPrice?`$${l.targetPrice}`:'—']),
+              h('td',null,[l.currency]),
+              h('td',{style:{fontFamily:'var(--mono)',fontSize:'11px'}},[l.dateCode||'—']),
+              h('td',{style:{color:'var(--text3)',fontSize:'11px'}},[l.crosses.length?l.crosses.map(c=>c.mpn).join(', '):'—'])
+            )))
+          )
+        )
+      ),
+
+      // Actions
+      h('div',{style:{display:'flex',justifyContent:'flex-end',gap:'8px',marginTop:'1rem'}},
+        h('button',{className:'btn',onClick:onClose},'Cancel'),
+        preview&&preview.length>0&&h('button',{className:'btn-primary',onClick:doImport,disabled:importing},
+          h('i',{className:'ti ti-file-import'}),importing?'Importing...':'Import all lines')
+      )
+    )
+  );
+}
+
 function exportExcel(rfq,lines,resps,isMgmt){
   if(typeof XLSX==='undefined'){alert('Export library not loaded');return;}
   const submitted=resps.filter(r=>r.submitted);
